@@ -1,0 +1,30 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+.vscode/
+
+# Secrets — NEVER commit real connection strings, JWT keys, or passwords
+appsettings.Production.json
+appsettings.*.Local.json
+*.pfx
+.env
+.env.*
+
+# EF
+*.mdf
+*.ldf
+
+# Angular / Node
+node_modules/
+dist/
+.angular/
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.history/
