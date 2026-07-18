@@ -41,6 +41,7 @@ public static class DependencyInjection
         services.AddScoped<JwtTokenService>();
         services.AddScoped<IPdfService, PdfServiceAdapter>();
         services.AddScoped<IExcelExportService, ExcelExportServiceAdapter>();
+        services.AddScoped<IWordService, WordServiceAdapter>();
         services.AddScoped<DestructionRequestService>();
         services.AddScoped<DepartmentService>();
         return services;

@@ -38,7 +38,7 @@ public class SaveDestructionRequestDto
     [Required, EmailAddress] public string Email { get; set; } = string.Empty;
 
     [Required]
-    [RegularExpression(@"^(\+974|974)?[3567]\d{7}$")]
+    [RegularExpression(@"^(\+974|974)?[34567]\d{7}$")]
     public string Phone { get; set; } = string.Empty;
 
     [Required] public string StorageLocation { get; set; } = string.Empty;
@@ -66,6 +66,7 @@ public class DestructionRequestListItemDto
     public string Status { get; set; } = string.Empty;
     public DateTime SubmittedAt { get; set; }
     public int RecordsCount { get; set; }
+    public string? AdminNotes { get; set; }
 }
 
 public class DestructionRequestDetailsDto : SaveDestructionRequestDto

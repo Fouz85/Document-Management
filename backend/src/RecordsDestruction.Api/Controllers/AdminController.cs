@@ -6,6 +6,7 @@ using System.Security.Claims;
 using RecordsDestruction.Application.Common.Interfaces;
 using RecordsDestruction.Application.DTOs;
 using RecordsDestruction.Application.Services;
+using RecordsDestruction.Domain.Enums;
 using RecordsDestruction.Infrastructure.Identity;
 
 namespace RecordsDestruction.Api.Controllers;
@@ -58,7 +59,8 @@ public class AdminController : ControllerBase
 
         var generatedBy = User.FindFirstValue("fullName") ?? User.FindFirstValue(ClaimTypes.Email) ?? "System";
         var bytes = _pdf.GenerateDestructionRequestPdf(request, generatedBy);
-        return File(bytes, "application/pdf", $"destruction-request-{id}.pdf");
+        var noPart = (request.DestructionNo ?? id.ToString()).Replace('\\', '-').Replace('/', '-');
+        return File(bytes, "application/pdf", $"استمارة إتلاف رقم {noPart}.pdf");
     }
 
     [HttpGet("export/excel")]
@@ -70,7 +72,7 @@ public class AdminController : ControllerBase
             .OrderByDescending(r => r.SubmittedAt)
             .ToListAsync();
         var bytes = _excel.ExportDestructionSummary(requests);
-        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "destruction-summary.xlsx");
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"كشف الإتلاف بتاريخ {DateTime.Now:yyyy-MM-dd}.xlsx");
     }
 
     // ---------- Users ----------
@@ -84,7 +86,7 @@ public class AdminController : ControllerBase
             list.Add(new UserDto
             {
                 Id = u.Id, FullName = u.FullName, Email = u.Email ?? "", Department = u.Department,
-                IsActive = u.IsActive, Roles = await _userManager.GetRolesAsync(u)
+                IsActive = u.IsActive, RegistrationStatus = u.RegistrationStatus, Roles = await _userManager.GetRolesAsync(u)
             });
         return list;
     }
@@ -149,5 +151,50 @@ public class AdminController : ControllerBase
         user.IsActive = !user.IsActive;
         await _userManager.UpdateAsync(user);
         return Ok(new { user.IsActive });
+    }
+
+    [HttpPost("users/{id}/approve")]
+    public async Task<IActionResult> ApproveRegistration(string id)
+    {
+        var user = await _userManager.FindByIdAsync(id);
+        if (user is null) return NotFound();
+        user.RegistrationStatus = RegistrationStatus.Approved;
+        user.IsActive = true;
+        await _userManager.UpdateAsync(user);
+        return NoContent();
+    }
+
+    [HttpPost("users/{id}/reject")]
+    public async Task<IActionResult> RejectRegistration(string id)
+    {
+        var user = await _userManager.FindByIdAsync(id);
+        if (user is null) return NotFound();
+        user.RegistrationStatus = RegistrationStatus.Rejected;
+        user.IsActive = false;
+        await _userManager.UpdateAsync(user);
+        return NoContent();
+    }
+
+    // ---------- Password reset requests ----------
+
+    [HttpGet("password-reset-requests")]
+    public async Task<ActionResult<List<PasswordResetRequestDto>>> PasswordResetRequests()
+        => await _db.PasswordResetRequests.AsNoTracking()
+            .OrderBy(r => r.IsResolved).ThenByDescending(r => r.CreatedAt)
+            .Select(r => new PasswordResetRequestDto
+            {
+                Id = r.Id, Email = r.Email, CreatedAt = r.CreatedAt, IsResolved = r.IsResolved
+            }).ToListAsync();
+
+    [HttpPost("password-reset-requests/{id:int}/resolve")]
+    public async Task<IActionResult> ResolvePasswordResetRequest(int id)
+    {
+        var req = await _db.PasswordResetRequests.FirstOrDefaultAsync(r => r.Id == id);
+        if (req is null) return NotFound();
+        req.IsResolved = true;
+        req.ResolvedAt = DateTime.UtcNow;
+        req.ResolvedByUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        await _db.SaveChangesAsync();
+        return NoContent();
     }
 }

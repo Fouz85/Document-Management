@@ -27,6 +27,7 @@ export class SignaturePadComponent implements ControlValueAccessor, AfterViewIni
   ngAfterViewInit(): void {
     const canvas = this.canvasRef().nativeElement;
     canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
   }
 
   writeValue(value: string | null): void {

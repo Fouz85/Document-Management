@@ -11,6 +11,23 @@ public class DestructionRequestService
     private readonly IApplicationDbContext _db;
     public DestructionRequestService(IApplicationDbContext db) => _db = db;
 
+    /// <summary>Next sequential number for the current year, formatted "yyyy\NNN" (e.g. 2026\001).</summary>
+    public async Task<string> GetNextDestructionNoAsync()
+    {
+        var year = DateTime.UtcNow.Year;
+        var prefix = $"{year}\\";
+        var numbers = await _db.DestructionRequests
+            .Where(r => r.DestructionNo != null && r.DestructionNo.StartsWith(prefix))
+            .Select(r => r.DestructionNo!)
+            .ToListAsync();
+
+        var max = 0;
+        foreach (var no in numbers)
+            if (int.TryParse(no.Substring(prefix.Length), out var n) && n > max) max = n;
+
+        return $"{prefix}{(max + 1):D3}";
+    }
+
     public async Task<int> CreateAsync(SaveDestructionRequestDto dto, string userId)
     {
         var entity = new DestructionRequest
@@ -33,6 +50,11 @@ public class DestructionRequestService
         if (entity is null) return false;
         if (!isAdmin && entity.SubmittedByUserId != userId) return false;
 
+        // Once submitted, a regular user can only edit again if the admin rejected it
+        // (revision requested) or it was left as a draft — not while it's under review or approved.
+        if (!isAdmin && entity.Status != RequestStatus.Draft && entity.Status != RequestStatus.Rejected)
+            return false;
+
         // Soft-delete replaced record lines instead of removing them.
         foreach (var old in entity.Records.Where(r => !r.IsDeleted))
         {
@@ -40,9 +62,9 @@ public class DestructionRequestService
             old.DeletedAt = DateTime.UtcNow;
         }
         Apply(dto, entity);
-        // Re-submitting a draft promotes it; saving as draft keeps/returns Draft status.
-        entity.Status = dto.SaveAsDraft ? RequestStatus.Draft
-                       : entity.Status == RequestStatus.Draft ? RequestStatus.Submitted : entity.Status;
+        entity.Status = isAdmin
+            ? (dto.SaveAsDraft ? RequestStatus.Draft : entity.Status == RequestStatus.Draft ? RequestStatus.Submitted : entity.Status)
+            : (dto.SaveAsDraft ? RequestStatus.Draft : RequestStatus.Submitted);
         entity.LastModifiedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return true;
@@ -67,7 +89,8 @@ public class DestructionRequestService
                 ResponsibleOfficer = r.ResponsibleOfficer,
                 Status = r.Status,
                 SubmittedAt = r.SubmittedAt,
-                RecordsCount = r.Records.Count(x => !x.IsDeleted)
+                RecordsCount = r.Records.Count(x => !x.IsDeleted),
+                AdminNotes = r.AdminNotes
             }).ToListAsync();
     }
 

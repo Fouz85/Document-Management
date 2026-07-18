@@ -54,6 +54,7 @@ export interface RequestListItem {
   status: string;
   submittedAt: string;
   recordsCount: number;
+  adminNotes?: string | null;
 }
 
 export interface RequestDetails extends SaveDestructionRequestDto {
@@ -91,5 +92,6 @@ export interface UserDto {
   email: string;
   department: string;
   isActive: boolean;
+  registrationStatus: string;
   roles: string[];
 }

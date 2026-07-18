@@ -1,12 +1,12 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
 
 @Component({
   selector: 'app-login',
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
   template: `
     <div class="login-page">
       <div class="login-wrapper">
@@ -17,8 +17,8 @@ import { I18nService } from '../../core/i18n.service';
 
         <div class="login-card card">
           <div class="login-header">
-            <img src="images/PrimaryLogo.png" [alt]="i18n.t('app.ministry')"
-                 style="max-width:280px; height:auto; filter:brightness(0) invert(1); margin-bottom:0.5rem;" />
+            <img [src]="i18n.isEn() ? 'images/en.png' : 'images/ar.png'" [alt]="i18n.t('app.ministry')"
+                 style="max-width:380px; height:auto; margin-bottom:0.5rem;" />
           </div>
 
           <div class="login-body">
@@ -38,7 +38,7 @@ import { I18nService } from '../../core/i18n.service';
                 </div>
               </div>
 
-              <div class="mb-4">
+              <div class="mb-2">
                 <label class="form-label" for="password">{{ i18n.t('auth.password') }}</label>
                 <div class="input-icon">
                   <i class="bi bi-lock"></i>
@@ -48,10 +48,18 @@ import { I18nService } from '../../core/i18n.service';
                 </div>
               </div>
 
+              <div class="text-end mb-3" style="font-size:0.82rem;">
+                <a routerLink="/forgot-password" style="color:var(--maroon);">{{ i18n.t('auth.forgotPasswordLink') }}</a>
+              </div>
+
               <button type="submit" class="btn btn-login w-100 text-white mb-2" [disabled]="busy()">
                 <i class="bi bi-box-arrow-in-right me-2"></i>{{ i18n.t('auth.login') }}
               </button>
             </form>
+            <div class="text-center mt-2" style="font-size:0.85rem;">
+              {{ i18n.t('auth.noAccount') }}
+              <a routerLink="/register" style="color:var(--maroon);font-weight:600;">{{ i18n.t('auth.registerLink') }}</a>
+            </div>
           </div>
         </div>
 
@@ -77,9 +85,10 @@ export class LoginComponent {
     this.error.set(null);
     try {
       await this.auth.login(this.email, this.password);
-      this.router.navigate([this.auth.isAdmin() ? '/admin/dashboard' : '/requests']);
-    } catch {
-      this.error.set('auth.invalidCredentials');
+      this.router.navigate([this.auth.isAdmin() ? '/admin/dashboard' : '/requests/new']);
+    } catch (err: unknown) {
+      const httpErr = err as { error?: { error?: string } };
+      this.error.set(httpErr?.error?.error ?? 'auth.invalidCredentials');
     } finally {
       this.busy.set(false);
     }

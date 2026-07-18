@@ -27,8 +27,17 @@ export class ApiService {
   createRequest(dto: SaveDestructionRequestDto): Observable<{ id: number }> {
     return this.http.post<{ id: number }>(`${this.base}/requests`, dto);
   }
+  nextDestructionNo(): Observable<{ destructionNo: string }> {
+    return this.http.get<{ destructionNo: string }>(`${this.base}/requests/next-destruction-no`);
+  }
   updateRequest(id: number, dto: SaveDestructionRequestDto): Observable<void> {
     return this.http.put<void>(`${this.base}/requests/${id}`, dto);
+  }
+  downloadRequestPdf(id: number): Observable<Blob> {
+    return this.http.get(`${this.base}/requests/${id}/pdf`, { responseType: 'blob' });
+  }
+  downloadRequestDocx(id: number): Observable<Blob> {
+    return this.http.get(`${this.base}/requests/${id}/docx`, { responseType: 'blob' });
   }
 
   // Admin
@@ -67,8 +76,27 @@ export class ApiService {
   toggleUserStatus(id: string): Observable<{ isActive: boolean }> {
     return this.http.post<{ isActive: boolean }>(`${this.base}/admin/users/${id}/toggle-status`, {});
   }
+  approveUser(id: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/admin/users/${id}/approve`, {});
+  }
+  rejectUser(id: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/admin/users/${id}/reject`, {});
+  }
+  register(dto: { fullName: string; email: string; department: string; password: string }): Observable<void> {
+    return this.http.post<void>(`${this.base}/auth/register`, dto);
+  }
   changePassword(currentPassword: string, newPassword: string): Observable<void> {
     return this.http.post<void>(`${this.base}/auth/change-password`, { currentPassword, newPassword });
+  }
+  forgotPassword(email: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/auth/forgot-password`, { email });
+  }
+  passwordResetRequests(): Observable<{ id: number; email: string; createdAt: string; isResolved: boolean }[]> {
+    return this.http.get<{ id: number; email: string; createdAt: string; isResolved: boolean }[]>(
+      `${this.base}/admin/password-reset-requests`);
+  }
+  resolvePasswordResetRequest(id: number): Observable<void> {
+    return this.http.post<void>(`${this.base}/admin/password-reset-requests/${id}/resolve`, {});
   }
 
   private filter(search?: string, status?: string): HttpParams {

@@ -15,6 +15,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplica
     public DbSet<DestructionRequest> DestructionRequests => Set<DestructionRequest>();
     public DbSet<DestructionRecord> DestructionRecords => Set<DestructionRecord>();
     public DbSet<Approval> Approvals => Set<Approval>();
+    public DbSet<PasswordResetRequest> PasswordResetRequests => Set<PasswordResetRequest>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -60,6 +61,12 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplica
             e.HasOne(x => x.DestructionRequest).WithMany(r => r.Approvals)
              .HasForeignKey(x => x.DestructionRequestId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(x => !x.IsDeleted && !x.DestructionRequest!.IsDeleted);
+        });
+
+        builder.Entity<PasswordResetRequest>(e =>
+        {
+            e.Property(x => x.Email).HasMaxLength(256).IsRequired();
+            e.HasQueryFilter(x => !x.IsDeleted);
         });
 
         builder.Entity<ApplicationUser>(e => e.HasQueryFilter(u => !u.IsDeleted));

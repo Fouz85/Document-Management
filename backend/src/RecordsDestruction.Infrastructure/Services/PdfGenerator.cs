@@ -10,6 +10,28 @@ namespace RecordsDestruction.Infrastructure.Services
     {
         private static bool _fontRegistered = false;
 
+        private static readonly Dictionary<string, string> TypeLabelsAr = new()
+        {
+            ["Files"] = "ملفات",
+            ["Registers"] = "سجلات",
+            ["Maps"] = "خرائط",
+            ["Engineering Designs"] = "تصاميم هندسية",
+            ["Photos"] = "صور",
+            ["Booklets"] = "كراسات",
+            ["Books"] = "كتب",
+        };
+
+        private static readonly Dictionary<string, string> MediumLabelsAr = new()
+        {
+            ["Paper"] = "وسائط ورقية",
+            ["Electronic"] = "وسائط إلكترونية",
+            ["Audio-Visual"] = "وسائط سمعية وبصرية",
+        };
+
+        private static string TypeLabel(string? v) => v is null ? "—" : TypeLabelsAr.GetValueOrDefault(v, v);
+        private static string MediumLabel(string? v) => v is null ? "—" : MediumLabelsAr.GetValueOrDefault(v, v);
+        private static string YearOnly(DateTime? d) => d?.Year.ToString() ?? "—";
+
         public static byte[] GenerateDestructionRequestPdf(
             DestructionRequest r,
             string? logoPath,
@@ -279,10 +301,10 @@ namespace RecordsDestruction.Infrastructure.Services
                                     (r.TotalVolume?.ToString("0.00") ?? "—") + " m",
                                     ":(الحجم الإجمالي (متر طولي");
                     BilingualRow(t, "Records First Date:",
-                                    r.RecordsFirstDate?.ToString("dd/MM/yyyy") ?? "—",
+                                    YearOnly(r.RecordsFirstDate),
                                     ":التاريخ الأدنى");
                     BilingualRow(t, "Records Last Date:",
-                                    r.RecordsLastDate?.ToString("dd/MM/yyyy") ?? "—",
+                                    YearOnly(r.RecordsLastDate),
                                     ":التاريخ الأقصى");
                 });
             });
@@ -346,11 +368,11 @@ namespace RecordsDestruction.Infrastructure.Services
                          .Padding(3).AlignRight().AlignMiddle()
                          .Text(rec.Remarks ?? "—").FontSize(7.5f).DirectionFromRightToLeft();
                         Cell(rec.RecordsVolume?.ToString("0.00") ?? "—");
-                        Cell(rec.LastDate?.ToString("dd/MM/yyyy")  ?? "—");
-                        Cell(rec.FirstDate?.ToString("dd/MM/yyyy") ?? "—");
+                        Cell(YearOnly(rec.LastDate));
+                        Cell(YearOnly(rec.FirstDate));
                         Cell(rec.RetentionRuleNo ?? "—");
-                        Cell(rec.StorageMedium   ?? "—");
-                        Cell(rec.RecordsType     ?? "—");
+                        Cell(MediumLabel(rec.StorageMedium));
+                        Cell(TypeLabel(rec.RecordsType));
                         Cell(rec.OriginalOrCopy  ?? "—");
                         t.Cell().Background(bg).BorderBottom(1).BorderColor("#eeeeee")
                          .Padding(3).AlignRight().AlignMiddle()
