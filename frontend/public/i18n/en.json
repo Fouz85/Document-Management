@@ -87,7 +87,7 @@
     "dashboard": "Dashboard", "total": "Total Submissions", "submitted": "Pending Review",
     "approved": "Approved", "rejected": "Rejected", "drafts": "Drafts",
     "recent": "Recent Submissions", "viewAll": "View All", "fromDate": "From Date", "toDate": "To Date",
-    "updateStatus": "Update Status", "notes": "Notes",
+    "updateStatus": "Update Status", "notes": "Notes", "viewNoteHint": "Click here to view the note",
     "downloadPdf": "Download PDF", "exportExcel": "Export Excel",
     "users": "User Management", "addUser": "Add User",
     "addNewUser": "Add New User", "createUser": "Create User",

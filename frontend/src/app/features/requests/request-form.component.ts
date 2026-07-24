@@ -322,10 +322,12 @@ const STORAGE_LOCATIONS = [
                style="background:rgba(221,120,119,0.15);color:#9e3535;border:1px solid rgba(221,120,119,0.5);">
               <i class="bi bi-x me-1"></i>{{ i18n.t('common.cancel') }}
             </button>
-            <button type="button" class="btn btn-sm" [disabled]="busy()" (click)="submit(true)"
-                    style="background:#e9c56b;border-color:#c9a800;color:#333;font-weight:600;">
-              <i class="bi bi-save me-1"></i>{{ i18n.t('request.completeLater') }}
-            </button>
+            @if (!auth.isAdmin() || !editId()) {
+              <button type="button" class="btn btn-sm" [disabled]="busy()" (click)="submit(true)"
+                      style="background:#e9c56b;border-color:#c9a800;color:#333;font-weight:600;">
+                <i class="bi bi-save me-1"></i>{{ i18n.t('request.completeLater') }}
+              </button>
+            }
             <button type="button" class="btn btn-primary btn-sm px-4" [disabled]="busy()" (click)="submit(false)">
               <i class="bi bi-send me-1"></i>{{ i18n.t('request.submit') }}
             </button>
@@ -412,9 +414,12 @@ export class RequestFormComponent {
   constructor() { this.load(); }
 
   private async load(): Promise<void> {
-    this.departments.set(await firstValueFrom(this.api.departmentsTree()));
-
+    // Set synchronously (before any await) so templates gated on editId() — e.g. hiding "Complete
+    // Later" for admin edits — are correct on the very first render, not just after data arrives.
     const idParam = this.route.snapshot.paramMap.get('id');
+    if (idParam) this.editId.set(+idParam);
+
+    this.departments.set(await firstValueFrom(this.api.departmentsTree()));
 
     if (idParam) {
       const d = await firstValueFrom(this.api.getRequest(+idParam));
@@ -423,7 +428,6 @@ export class RequestFormComponent {
         this.router.navigate(['/requests', +idParam]);
         return;
       }
-      this.editId.set(+idParam);
       for (const _ of d.records) this.addRecord();
       this.form.patchValue({
         concernedParty: d.concernedParty,
@@ -478,7 +482,7 @@ export class RequestFormComponent {
   /** Cancel discards in-progress edits: a brand-new (unsaved) request just resets to a fresh blank form. */
   async cancel(): Promise<void> {
     if (this.editId()) {
-      this.router.navigate(['/requests']);
+      this.router.navigate(this.auth.isAdmin() ? ['/admin/submissions'] : ['/requests']);
       return;
     }
     this.message.set(null);

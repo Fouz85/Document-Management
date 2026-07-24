@@ -39,6 +39,7 @@ public static class DependencyInjection
         .AddDefaultTokenProviders();
 
         services.AddScoped<JwtTokenService>();
+        services.AddSingleton<WordComHost>();
         services.AddScoped<IPdfService, PdfServiceAdapter>();
         services.AddScoped<IExcelExportService, ExcelExportServiceAdapter>();
         services.AddScoped<IWordService, WordServiceAdapter>();

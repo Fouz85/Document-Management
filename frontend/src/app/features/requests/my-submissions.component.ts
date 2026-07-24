@@ -78,9 +78,9 @@ import { RequestListItem } from '../../core/models';
                   <th>{{ i18n.t('request.destructionNo') }}</th>
                   <th class="col-text">{{ i18n.t('request.department') }}</th>
                   <th style="width:60px;">{{ i18n.t('request.recordsCount') }}</th>
-                  <th style="width:100px;">{{ i18n.t('request.submittedAt') }}</th>
+                  <th style="width:125px;">{{ i18n.t('request.submittedAt') }}</th>
                   <th style="width:110px;">{{ i18n.t('common.status') }}</th>
-                  <th style="width:130px;">{{ i18n.t('admin.notes') }}</th>
+                  <th style="width:210px;">{{ i18n.t('admin.notes') }}</th>
                   <th style="width:70px;">{{ i18n.t('common.actions') }}</th>
                 </tr>
               </thead>
@@ -93,7 +93,16 @@ import { RequestListItem } from '../../core/models';
                     <td><span class="badge bg-secondary">{{ r.recordsCount }}</span></td>
                     <td>{{ r.submittedAt | date:'dd-MM-yyyy' }}</td>
                     <td><span class="badge-status" [style]="badgeStyle(r.status)">{{ i18n.t('status.' + r.status) }}</span></td>
-                    <td>{{ r.adminNotes ?? '—' }}</td>
+                    <td (click)="$event.stopPropagation()">
+                      @if (r.adminNotes) {
+                        <span class="badge-status" style="cursor:pointer;background:rgba(221,120,119,0.15);color:#9e3535;border:1px solid rgba(221,120,119,0.5);white-space:nowrap;"
+                              (click)="showNote(r.adminNotes)">
+                          <i class="bi bi-chat-square-text me-1"></i>{{ i18n.t('admin.viewNoteHint') }}
+                        </span>
+                      } @else {
+                        <span class="text-muted">—</span>
+                      }
+                    </td>
                     <td class="actions-cell" (click)="$event.stopPropagation()">
                       <div class="d-flex gap-1 flex-nowrap justify-content-center">
                         <a [routerLink]="['/requests', r.id]"
@@ -118,7 +127,25 @@ import { RequestListItem } from '../../core/models';
         }
       </div>
     </div>
-  `
+
+    @if (selectedNote()) {
+      <div class="modal-backdrop-custom" (click)="selectedNote.set(null)">
+        <div class="card" style="max-width:480px;width:90%;" (click)="$event.stopPropagation()">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <strong style="color:var(--maroon);">{{ i18n.t('admin.notes') }}</strong>
+            <button type="button" class="btn-close" (click)="selectedNote.set(null)"></button>
+          </div>
+          <div class="card-body">{{ selectedNote() }}</div>
+        </div>
+      </div>
+    }
+  `,
+  styles: [`
+    .modal-backdrop-custom {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center; z-index: 1050;
+    }
+  `]
 })
 export class MySubmissionsComponent {
   private readonly api = inject(ApiService);
@@ -129,6 +156,7 @@ export class MySubmissionsComponent {
   readonly items = signal<RequestListItem[]>([]);
   readonly filtered = signal<RequestListItem[]>([]);
   readonly filterResultText = signal('');
+  readonly selectedNote = signal<string | null>(null);
 
   filterFrom = '';
   filterTo = '';
@@ -174,5 +202,9 @@ export class MySubmissionsComponent {
 
   goTo(id: number): void {
     this.router.navigate(['/requests', id]);
+  }
+
+  showNote(note: string): void {
+    this.selectedNote.set(note);
   }
 }

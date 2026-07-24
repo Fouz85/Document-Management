@@ -87,7 +87,7 @@
     "dashboard": "لوحة التحكم", "total": "إجمالي الطلبات", "submitted": "قيد المراجعة",
     "approved": "موافق عليه", "rejected": "مرفوض", "drafts": "مسودات",
     "recent": "أحدث الطلبات", "viewAll": "عرض الكل", "fromDate": "من تاريخ", "toDate": "إلى تاريخ",
-    "updateStatus": "تحديث الحالة", "notes": "ملاحظات",
+    "updateStatus": "تحديث الحالة", "notes": "ملاحظات", "viewNoteHint": "انقر هنا لرؤية الملاحظة",
     "downloadPdf": "تحميل PDF", "exportExcel": "تصدير Excel",
     "users": "إدارة المستخدمين", "addUser": "إضافة مستخدم",
     "addNewUser": "إضافة مستخدم جديد", "createUser": "إنشاء المستخدم",

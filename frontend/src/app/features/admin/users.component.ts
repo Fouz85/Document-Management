@@ -53,14 +53,16 @@ import { UserDto } from '../../core/models';
                   </td>
                   <td class="actions-cell">
                     <div class="d-flex gap-1 flex-nowrap justify-content-center">
-                      @if (u.registrationStatus === 'Pending') {
+                      @if (u.registrationStatus === 'Pending' || u.registrationStatus === 'Rejected') {
                         <button class="btn btn-sm btn-outline-success py-0 px-2" [title]="i18n.t('admin.approve')" (click)="approve(u)">
                           <i class="bi bi-check-lg"></i><small>{{ i18n.t('admin.approve') }}</small>
                         </button>
+                      }
+                      @if (u.registrationStatus === 'Pending') {
                         <button class="btn btn-sm btn-outline-danger py-0 px-2" [title]="i18n.t('admin.reject')" (click)="reject(u)">
                           <i class="bi bi-x-lg"></i><small>{{ i18n.t('admin.reject') }}</small>
                         </button>
-                      } @else {
+                      } @else if (u.registrationStatus !== 'Rejected') {
                         <button class="btn btn-sm py-0 px-2"
                                 [class]="u.isActive ? 'btn-outline-secondary' : 'btn-outline-success'"
                                 [title]="u.isActive ? i18n.t('admin.deactivate') : i18n.t('admin.activate')"

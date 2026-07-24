@@ -24,25 +24,27 @@ import { RequestDetails, SignatureBlockDto } from '../../core/models';
               <i class="bi bi-pencil me-1"></i>{{ i18n.t('common.edit') }}
             </a>
           }
-          <button class="btn btn-outline-success btn-sm" (click)="downloadPdf()" [disabled]="downloadingPdf()">
-            @if (downloadingPdf()) {
-              <span class="spinner-border spinner-border-sm me-1"></span>
-            } @else {
-              <i class="bi bi-file-earmark-pdf me-1"></i>
-            }PDF
-          </button>
-          <button class="btn btn-outline-primary btn-sm" (click)="downloadDocx()" [disabled]="downloadingDocx()">
-            @if (downloadingDocx()) {
-              <span class="spinner-border spinner-border-sm me-1"></span>
-            } @else {
-              <i class="bi bi-file-earmark-word me-1"></i>
-            }Word
-          </button>
+          @if (r.status === 'Approved') {
+            <button class="btn btn-outline-success btn-sm" (click)="downloadPdf()" [disabled]="downloadingPdf()">
+              @if (downloadingPdf()) {
+                <span class="spinner-border spinner-border-sm me-1"></span>
+              } @else {
+                <i class="bi bi-file-earmark-pdf me-1"></i>
+              }PDF
+            </button>
+            <button class="btn btn-outline-primary btn-sm" (click)="downloadDocx()" [disabled]="downloadingDocx()">
+              @if (downloadingDocx()) {
+                <span class="spinner-border spinner-border-sm me-1"></span>
+              } @else {
+                <i class="bi bi-file-earmark-word me-1"></i>
+              }Word
+            </button>
+          }
           <a [routerLink]="backLink()" class="btn-back"><i class="bi bi-arrow-right"></i>{{ i18n.t('common.back') }}</a>
         </div>
       </div>
 
-      @if (r.adminNotes) {
+      @if (r.adminNotes && !auth.isAdmin()) {
         <div class="alert alert-warning"><i class="bi bi-chat-left-text me-2"></i><strong>{{ i18n.t('request.adminNotes') }}:</strong> {{ r.adminNotes }}</div>
       }
 

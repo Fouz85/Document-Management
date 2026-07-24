@@ -5,6 +5,10 @@ namespace RecordsDestruction.Infrastructure.Services;
 
 public class PdfServiceAdapter : IPdfService
 {
+    private readonly WordComHost _wordCom;
+
+    public PdfServiceAdapter(WordComHost wordCom) => _wordCom = wordCom;
+
     public byte[] GenerateDestructionRequestPdf(DestructionRequest request, string generatedBy, string? approvedBy = null)
     {
         try
@@ -12,7 +16,7 @@ public class PdfServiceAdapter : IPdfService
             // Render the exact official NAQ template (via the same filled Word document) instead of
             // the custom-styled fallback below, so the PDF matches the template pixel-for-pixel.
             var docxBytes = WordGenerator.GenerateDestructionRequestDocx(request);
-            return WordToPdfConverter.ConvertToPdf(docxBytes);
+            return _wordCom.ConvertToPdfAsync(docxBytes).GetAwaiter().GetResult();
         }
         catch
         {

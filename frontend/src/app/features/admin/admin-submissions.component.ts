@@ -68,7 +68,7 @@ import { RequestListItem } from '../../core/models';
                   <th class="col-text">{{ i18n.t('request.department') }}</th>
                   <th>{{ i18n.t('request.responsibleOfficer') }}</th>
                   <th style="width:60px;">{{ i18n.t('request.recordsCount') }}</th>
-                  <th style="width:100px;">{{ i18n.t('request.submittedAt') }}</th>
+                  <th style="width:125px;">{{ i18n.t('request.submittedAt') }}</th>
                   <th style="width:110px;">{{ i18n.t('common.status') }}</th>
                   <th style="width:90px;">{{ i18n.t('common.actions') }}</th>
                 </tr>
