@@ -10,6 +10,5 @@ public interface IApplicationDbContext
     DbSet<DestructionRequest> DestructionRequests { get; }
     DbSet<DestructionRecord> DestructionRecords { get; }
     DbSet<Approval> Approvals { get; }
-    DbSet<PasswordResetRequest> PasswordResetRequests { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

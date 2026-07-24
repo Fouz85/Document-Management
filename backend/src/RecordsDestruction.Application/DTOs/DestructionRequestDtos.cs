@@ -67,6 +67,7 @@ public class DestructionRequestListItemDto
     public DateTime SubmittedAt { get; set; }
     public int RecordsCount { get; set; }
     public string? AdminNotes { get; set; }
+    public string? SubmittedByUserId { get; set; }
 }
 
 public class DestructionRequestDetailsDto : SaveDestructionRequestDto

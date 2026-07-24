@@ -2,11 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
-using RecordsDestruction.Application.Common.Interfaces;
 using RecordsDestruction.Application.DTOs;
-using RecordsDestruction.Domain.Entities;
 using RecordsDestruction.Domain.Enums;
 using RecordsDestruction.Infrastructure.Identity;
 using RecordsDestruction.Infrastructure.Services;
@@ -20,15 +17,13 @@ public class AuthController : ControllerBase
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly JwtTokenService _jwt;
-    private readonly IApplicationDbContext _db;
 
     public AuthController(UserManager<ApplicationUser> userManager,
-        SignInManager<ApplicationUser> signInManager, JwtTokenService jwt, IApplicationDbContext db)
+        SignInManager<ApplicationUser> signInManager, JwtTokenService jwt)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _jwt = jwt;
-        _db = db;
     }
 
     [HttpPost("register")]
@@ -89,26 +84,6 @@ public class AuthController : ControllerBase
             Department = user.Department,
             Roles = roles
         };
-    }
-
-    [HttpPost("forgot-password")]
-    [EnableRateLimiting("auth")]
-    public async Task<IActionResult> ForgotPassword(ForgotPasswordDto dto)
-    {
-        var user = await _userManager.FindByEmailAsync(dto.Email);
-        // Always respond the same way regardless of whether the account exists (OWASP) —
-        // only record a request internally when there's a real, active account behind the email.
-        if (user is not null && user.IsActive && user.RegistrationStatus == RegistrationStatus.Approved)
-        {
-            var alreadyPending = await _db.PasswordResetRequests
-                .AnyAsync(r => r.Email == dto.Email && !r.IsResolved);
-            if (!alreadyPending)
-            {
-                _db.PasswordResetRequests.Add(new PasswordResetRequest { Email = dto.Email });
-                await _db.SaveChangesAsync();
-            }
-        }
-        return Ok();
     }
 
     [HttpPost("change-password")]

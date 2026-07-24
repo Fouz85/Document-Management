@@ -33,11 +33,17 @@ const STORAGE_LOCATIONS = [
       <div class="card">
         <div class="card-body p-5 text-center">
           <i class="bi bi-check-circle-fill" style="font-size:3rem;color:var(--palm);"></i>
-          <h4 class="mt-3" style="color:var(--maroon);">{{ i18n.t('request.thankYouTitle') }}</h4>
-          <p class="text-muted">{{ i18n.t('request.thankYouMessage') }}</p>
+          @if (auth.isAdmin() && editId()) {
+            <h4 class="mt-3" style="color:var(--maroon);">{{ i18n.t('request.updatedTitle') }}</h4>
+          } @else {
+            <h4 class="mt-3" style="color:var(--maroon);">{{ i18n.t('request.thankYouTitle') }}</h4>
+            <p class="text-muted">{{ i18n.t('request.thankYouMessage') }}</p>
+          }
           <div class="d-flex justify-content-center gap-2 mt-4">
             <a class="btn btn-primary" [routerLink]="['/requests', submittedOk()]">{{ i18n.t('request.viewRequest') }}</a>
-            <a class="btn btn-outline-secondary" routerLink="/requests">{{ i18n.t('nav.myRequests') }}</a>
+            <a class="btn btn-outline-secondary" [routerLink]="auth.isAdmin() ? ['/admin/submissions'] : ['/requests']">
+              {{ auth.isAdmin() ? i18n.t('nav.allSubmissions') : i18n.t('nav.myRequests') }}
+            </a>
           </div>
         </div>
       </div>
@@ -333,7 +339,7 @@ const STORAGE_LOCATIONS = [
 export class RequestFormComponent {
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(ApiService);
-  private readonly auth = inject(AuthService);
+  readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   readonly i18n = inject(I18nService);

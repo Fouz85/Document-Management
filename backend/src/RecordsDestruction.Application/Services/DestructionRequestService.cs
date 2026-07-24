@@ -90,7 +90,8 @@ public class DestructionRequestService
                 Status = r.Status,
                 SubmittedAt = r.SubmittedAt,
                 RecordsCount = r.Records.Count(x => !x.IsDeleted),
-                AdminNotes = r.AdminNotes
+                AdminNotes = r.AdminNotes,
+                SubmittedByUserId = r.SubmittedByUserId
             }).ToListAsync();
     }
 
@@ -171,7 +172,8 @@ public class DestructionRequestService
                 {
                     Id = r.Id, DestructionNo = r.DestructionNo, Department = r.Department,
                     ResponsibleOfficer = r.ResponsibleOfficer, Status = r.Status, SubmittedAt = r.SubmittedAt,
-                    RecordsCount = r.Records.Count(x => !x.IsDeleted)
+                    RecordsCount = r.Records.Count(x => !x.IsDeleted),
+                    SubmittedByUserId = r.SubmittedByUserId
                 }).ToListAsync()
         };
     }

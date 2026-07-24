@@ -33,19 +33,6 @@ public class ChangePasswordDto
     [Required, MinLength(8)] public string NewPassword { get; set; } = string.Empty;
 }
 
-public class ForgotPasswordDto
-{
-    [Required, EmailAddress] public string Email { get; set; } = string.Empty;
-}
-
-public class PasswordResetRequestDto
-{
-    public int Id { get; set; }
-    public string Email { get; set; } = string.Empty;
-    public DateTime CreatedAt { get; set; }
-    public bool IsResolved { get; set; }
-}
-
 public class UserDto
 {
     public string Id { get; set; } = string.Empty;

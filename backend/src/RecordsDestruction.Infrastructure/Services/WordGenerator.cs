@@ -213,8 +213,8 @@ namespace RecordsDestruction.Infrastructure.Services
             using (var stream = new MemoryStream(imageBytes)) imagePart.FeedData(stream);
 
             const long emuPerPixel = 9525;
-            long widthEmu = 130 * emuPerPixel;
-            long heightEmu = 55 * emuPerPixel;
+            long widthEmu = 190 * emuPerPixel;
+            long heightEmu = 80 * emuPerPixel;
 
             var element = new Drawing(
                 new WP.Inline(

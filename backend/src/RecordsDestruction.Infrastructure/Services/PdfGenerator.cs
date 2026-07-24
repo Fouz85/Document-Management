@@ -468,11 +468,11 @@ namespace RecordsDestruction.Infrastructure.Services
                                     try
                                     {
                                         var b = Convert.FromBase64String(s.Item4.Split(',')[1]);
-                                        inner.Item().MaxHeight(45).Image(b).FitArea();
+                                        inner.Item().MaxHeight(65).Image(b).FitArea();
                                     }
-                                    catch { inner.Item().MinHeight(30).MaxHeight(45).Border(1).BorderColor("#cccccc").Background("#fafafa"); }
+                                    catch { inner.Item().MinHeight(30).MaxHeight(65).Border(1).BorderColor("#cccccc").Background("#fafafa"); }
                                 }
-                                else inner.Item().MinHeight(30).MaxHeight(45).Border(1).BorderColor("#cccccc").Background("#fafafa");
+                                else inner.Item().MinHeight(30).MaxHeight(65).Border(1).BorderColor("#cccccc").Background("#fafafa");
                             });
                         });
                     }

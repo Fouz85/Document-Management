@@ -48,11 +48,7 @@ import { I18nService } from '../../core/i18n.service';
                 </div>
               </div>
 
-              <div class="text-end mb-3" style="font-size:0.82rem;">
-                <a routerLink="/forgot-password" style="color:var(--maroon);">{{ i18n.t('auth.forgotPasswordLink') }}</a>
-              </div>
-
-              <button type="submit" class="btn btn-login w-100 text-white mb-2" [disabled]="busy()">
+              <button type="submit" class="btn btn-login w-100 text-white mb-2 mt-2" [disabled]="busy()">
                 <i class="bi bi-box-arrow-in-right me-2"></i>{{ i18n.t('auth.login') }}
               </button>
             </form>

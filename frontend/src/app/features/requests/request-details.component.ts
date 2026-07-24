@@ -19,7 +19,7 @@ import { RequestDetails, SignatureBlockDto } from '../../core/models';
         </div>
         <div class="d-flex align-items-center gap-2">
           <span [class]="badge(r.status)" style="font-size:0.85rem;">{{ i18n.t('status.' + r.status) }}</span>
-          @if (r.status === 'Draft' || r.status === 'Rejected') {
+          @if (r.status === 'Draft' || r.status === 'Rejected' || auth.isAdmin()) {
             <a class="btn btn-outline-primary btn-sm" [routerLink]="['/requests', r.id, 'edit']">
               <i class="bi bi-pencil me-1"></i>{{ i18n.t('common.edit') }}
             </a>

@@ -33,11 +33,33 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("dashboard")]
-    public async Task<ActionResult<DashboardDto>> Dashboard() => await _requests.GetDashboardAsync();
+    public async Task<ActionResult<DashboardDto>> Dashboard()
+    {
+        var dashboard = await _requests.GetDashboardAsync();
+        await ResolveCurrentOfficerNames(dashboard.RecentSubmissions);
+        return dashboard;
+    }
 
     [HttpGet("submissions")]
     public async Task<ActionResult<List<DestructionRequestListItemDto>>> Submissions(string? search, string? status)
-        => await _requests.ListAsync(null, search, status);
+    {
+        var items = await _requests.ListAsync(null, search, status);
+        await ResolveCurrentOfficerNames(items);
+        return items;
+    }
+
+    /// <summary>"الموظف المسؤول" is captured on the request at submission time, so if an admin later
+    /// corrects a user's name via Users Management, older requests still hold the old snapshot.
+    /// Overlay the submitter's current account name here so list views always show up-to-date names.</summary>
+    private async Task ResolveCurrentOfficerNames(IEnumerable<DestructionRequestListItemDto> items)
+    {
+        var ids = items.Select(i => i.SubmittedByUserId).Where(id => id is not null).Distinct().ToList();
+        if (ids.Count == 0) return;
+        var names = await _userManager.Users.Where(u => ids.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.FullName);
+        foreach (var item in items)
+            if (item.SubmittedByUserId is not null && names.TryGetValue(item.SubmittedByUserId, out var name))
+                item.ResponsibleOfficer = name;
+    }
 
     [HttpPut("submissions/{id:int}/status")]
     public async Task<IActionResult> UpdateStatus(int id, UpdateStatusDto dto)
@@ -175,26 +197,4 @@ public class AdminController : ControllerBase
         return NoContent();
     }
 
-    // ---------- Password reset requests ----------
-
-    [HttpGet("password-reset-requests")]
-    public async Task<ActionResult<List<PasswordResetRequestDto>>> PasswordResetRequests()
-        => await _db.PasswordResetRequests.AsNoTracking()
-            .OrderBy(r => r.IsResolved).ThenByDescending(r => r.CreatedAt)
-            .Select(r => new PasswordResetRequestDto
-            {
-                Id = r.Id, Email = r.Email, CreatedAt = r.CreatedAt, IsResolved = r.IsResolved
-            }).ToListAsync();
-
-    [HttpPost("password-reset-requests/{id:int}/resolve")]
-    public async Task<IActionResult> ResolvePasswordResetRequest(int id)
-    {
-        var req = await _db.PasswordResetRequests.FirstOrDefaultAsync(r => r.Id == id);
-        if (req is null) return NotFound();
-        req.IsResolved = true;
-        req.ResolvedAt = DateTime.UtcNow;
-        req.ResolvedByUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        await _db.SaveChangesAsync();
-        return NoContent();
-    }
 }

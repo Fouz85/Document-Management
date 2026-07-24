@@ -32,6 +32,23 @@ namespace RecordsDestruction.Infrastructure.Services
         private static string MediumLabel(string? v) => v is null ? "—" : MediumLabelsAr.GetValueOrDefault(v, v);
         private static string YearOnly(DateTime? d) => d?.Year.ToString() ?? "—";
 
+        private const double TemplateFontSize = 18;
+        private const double RemarksFontSize = 22; // bigger than the template default — Remarks reads too small otherwise
+
+        /// <summary>Rough estimate of wrapped-line count for a column, so long "Remarks"/"Title" text
+        /// gets a taller row instead of overflowing into the row below it. Accounts for font size,
+        /// since a bigger font fits fewer characters per line.</summary>
+        private static double EstimateRowHeight(string? text, double colWidthUnits, double baseHeight, double fontSize = TemplateFontSize)
+        {
+            if (string.IsNullOrEmpty(text)) return baseHeight;
+            const double charsPerWidthUnitAt18pt = 0.9; // conservative: under-count chars/line rather than over
+            double charsPerWidthUnit = charsPerWidthUnitAt18pt * (TemplateFontSize / fontSize);
+            double lineHeight = 22 * (fontSize / TemplateFontSize);
+            double charsPerLine = Math.Max(colWidthUnits * charsPerWidthUnit, 10);
+            int lines = Math.Max(1, (int)Math.Ceiling(text.Length / charsPerLine));
+            return Math.Max(baseHeight, lines * lineHeight);
+        }
+
         public static byte[] ExportDestructionSummary(
             List<DestructionRequest> requests,
             string concernedParty = "وزارة التربية والتعليم والتعليم العالي",
@@ -56,6 +73,9 @@ namespace RecordsDestruction.Infrastructure.Services
 
             int currentRow = FirstDataRow;
             int serialNo = 1;
+            const double dataRowHeight = 280;
+            double titleColWidth = ws.Column("F").Width;
+            double remarksColWidth = ws.Column("O").Width;
 
             var rows = requests.OrderBy(r => r.DestructionNo)
                 .SelectMany(req => req.Records.OrderBy(rec => rec.SerialNo).Select(rec => (req, rec)));
@@ -85,9 +105,16 @@ namespace RecordsDestruction.Infrastructure.Services
                 ws.Cell($"L{currentRow}").Value = YearOnly(rec.FirstDate);
                 ws.Cell($"M{currentRow}").Value = YearOnly(rec.LastDate);
                 ws.Cell($"N{currentRow}").Value = rec.RecordsVolume?.ToString("0.00")   ?? "—";
-                ws.Cell($"O{currentRow}").Value = rec.Remarks ?? "—";
+                var remarksCell = ws.Cell($"O{currentRow}");
+                remarksCell.Value = rec.Remarks ?? "—";
+                remarksCell.Style.Font.FontSize = RemarksFontSize;
                 // P (توصيات إدارة التدريب) and Q (قرار لجنة الإتلاف) are left blank —
                 // they are filled in by NAQ / the destruction committee after the fact, not by this system.
+
+                double neededHeight = Math.Max(
+                    EstimateRowHeight(rec.RecordsTitle, titleColWidth, dataRowHeight),
+                    EstimateRowHeight(rec.Remarks, remarksColWidth, dataRowHeight, RemarksFontSize));
+                ws.Row(currentRow).Height = neededHeight;
 
                 serialNo++;
                 currentRow++;

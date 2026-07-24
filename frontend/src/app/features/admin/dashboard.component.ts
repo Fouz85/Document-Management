@@ -106,9 +106,15 @@ import { Dashboard } from '../../core/models';
                         <a [routerLink]="['/requests', r.id]" class="btn btn-sm btn-outline-primary py-0 px-2">
                           <i class="bi bi-eye"></i>
                         </a>
+                        <a [routerLink]="['/requests', r.id, 'edit']" class="btn btn-sm btn-outline-warning py-0 px-2">
+                          <i class="bi bi-pencil"></i>
+                        </a>
                         @if (r.status === 'Approved') {
                           <button class="btn btn-sm btn-outline-success py-0 px-2" (click)="downloadPdf(r.id)">
                             <i class="bi bi-file-earmark-pdf"></i>
+                          </button>
+                          <button class="btn btn-sm btn-outline-primary py-0 px-2" (click)="downloadDocx(r.id)">
+                            <i class="bi bi-file-earmark-word"></i>
                           </button>
                         }
                         <button class="btn btn-sm btn-outline-danger py-0 px-2" (click)="remove(r.id)">
@@ -157,6 +163,14 @@ export class DashboardComponent {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = `destruction-request-${id}.pdf`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async downloadDocx(id: number): Promise<void> {
+    const blob = await firstValueFrom(this.api.downloadRequestDocx(id));
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `destruction-request-${id}.docx`; a.click();
     URL.revokeObjectURL(url);
   }
 

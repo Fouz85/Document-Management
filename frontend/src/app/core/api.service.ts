@@ -88,16 +88,6 @@ export class ApiService {
   changePassword(currentPassword: string, newPassword: string): Observable<void> {
     return this.http.post<void>(`${this.base}/auth/change-password`, { currentPassword, newPassword });
   }
-  forgotPassword(email: string): Observable<void> {
-    return this.http.post<void>(`${this.base}/auth/forgot-password`, { email });
-  }
-  passwordResetRequests(): Observable<{ id: number; email: string; createdAt: string; isResolved: boolean }[]> {
-    return this.http.get<{ id: number; email: string; createdAt: string; isResolved: boolean }[]>(
-      `${this.base}/admin/password-reset-requests`);
-  }
-  resolvePasswordResetRequest(id: number): Observable<void> {
-    return this.http.post<void>(`${this.base}/admin/password-reset-requests/${id}/resolve`, {});
-  }
 
   private filter(search?: string, status?: string): HttpParams {
     let params = new HttpParams();

@@ -89,6 +89,10 @@ import { RequestListItem } from '../../core/models';
                            [title]="i18n.t('common.details')">
                           <i class="bi bi-eye"></i>
                         </a>
+                        <a [routerLink]="['/requests', r.id, 'edit']" class="btn btn-sm btn-outline-warning py-0 px-2"
+                           [title]="i18n.t('common.edit')">
+                          <i class="bi bi-pencil"></i>
+                        </a>
                         @if (r.status === 'Approved') {
                           <button class="btn btn-sm btn-outline-success py-0 px-2" title="PDF"
                                   [disabled]="isDownloading(r.id, 'pdf')"

@@ -6,8 +6,7 @@
     "users": "Users", "addUser": "Add User", "account": "Account",
     "importantLinks": "Important Links", "formGuide": "Destruction Form Guide",
     "logout": "Sign Out", "changePassword": "Change Password",
-    "roleAdmin": "Administrator", "roleUser": "User", "toggleSidebar": "Toggle sidebar",
-    "notifications": "Notifications"
+    "roleAdmin": "Administrator", "roleUser": "User", "toggleSidebar": "Toggle sidebar"
   },
   "auth": {
     "login": "Sign In", "email": "Email Address", "password": "Password",
@@ -22,12 +21,7 @@
     "emailInUse": "This email is already registered",
     "weakPassword": "Password does not meet the requirements above",
     "registerTitle": "Create a new account", "noAccount": "Don't have an account?", "registerLink": "Register now",
-    "registerSuccess": "Registration request sent successfully — awaiting admin approval", "backToLogin": "Back to sign in",
-    "forgotPasswordLink": "Forgot password?",
-    "forgotPasswordTitle": "Forgot Password",
-    "forgotPasswordHint": "Enter your email address and your request will be sent to the responsible team to reset your password.",
-    "forgotPasswordSubmit": "Send Request",
-    "forgotPasswordSent": "If that email is registered with us, your request has been sent to the responsible team and they will contact you."
+    "registerSuccess": "Registration request sent successfully — awaiting admin approval", "backToLogin": "Back to sign in"
   },
   "common": {
     "save": "Save", "cancel": "Cancel", "edit": "Edit", "delete": "Delete", "details": "View",
@@ -83,6 +77,7 @@
     "submitted": "Request submitted successfully",
     "thankYouTitle": "Thank you!",
     "thankYouMessage": "Your destruction request has been submitted successfully and will be reviewed by the responsible team.",
+    "updatedTitle": "Request updated",
     "viewRequest": "View Request",
     "requestNo": "Request No.", "submittedAt": "Date",
     "recordsCount": "Records", "adminNotes": "Admin Notes",
@@ -104,8 +99,6 @@
     "approve": "Approve", "reject": "Reject", "confirmRejectUser": "Reject this account?",
     "reviewAction": "Review Request", "notesPlaceholder": "Add notes for the user (optional)...",
     "toggleStatus": "Activate / Deactivate", "newPasswordOptional": "New password (optional)",
-    "passwordResetRequests": "Password Reset Requests", "requestedAt": "Requested At",
-    "resolved": "Resolved", "markResolved": "Mark Resolved",
     "deptSection": "Department / Section",
     "selectMainDept": "Select Main Department",
     "selectUnit": "Select Unit",

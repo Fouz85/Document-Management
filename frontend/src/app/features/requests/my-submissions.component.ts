@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../core/api.service';
+import { AuthService } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
 import { RequestListItem } from '../../core/models';
 
@@ -99,7 +100,7 @@ import { RequestListItem } from '../../core/models';
                            class="btn btn-sm btn-outline-primary py-0 px-2" [title]="i18n.t('common.details')">
                           <i class="bi bi-eye"></i>
                         </a>
-                        @if (r.status === 'Draft' || r.status === 'Rejected') {
+                        @if (r.status === 'Draft' || r.status === 'Rejected' || auth.isAdmin()) {
                           <a [routerLink]="['/requests', r.id, 'edit']"
                              class="btn btn-sm btn-outline-warning py-0 px-2" [title]="i18n.t('common.edit')">
                             <i class="bi bi-pencil"></i>
@@ -123,6 +124,7 @@ export class MySubmissionsComponent {
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
   readonly i18n = inject(I18nService);
+  readonly auth = inject(AuthService);
 
   readonly items = signal<RequestListItem[]>([]);
   readonly filtered = signal<RequestListItem[]>([]);

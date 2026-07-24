@@ -6,8 +6,7 @@
     "users": "المستخدمون", "addUser": "إضافة مستخدم", "account": "الحساب",
     "importantLinks": "روابط مهمة", "formGuide": "دليل استمارة إتلاف وثائق",
     "logout": "تسجيل الخروج", "changePassword": "تغيير كلمة المرور",
-    "roleAdmin": "مدير النظام", "roleUser": "مستخدم", "toggleSidebar": "إخفاء/إظهار القائمة",
-    "notifications": "الإشعارات"
+    "roleAdmin": "مدير النظام", "roleUser": "مستخدم", "toggleSidebar": "إخفاء/إظهار القائمة"
   },
   "auth": {
     "login": "تسجيل الدخول", "email": "البريد الإلكتروني", "password": "كلمة المرور",
@@ -22,12 +21,7 @@
     "emailInUse": "البريد الإلكتروني مستخدم مسبقًا",
     "weakPassword": "كلمة المرور لا تحقق الشروط المطلوبة أعلاه",
     "registerTitle": "إنشاء حساب جديد", "noAccount": "ليس لديك حساب؟", "registerLink": "سجّل الآن",
-    "registerSuccess": "تم إرسال طلب التسجيل بنجاح، بانتظار موافقة الإدارة", "backToLogin": "العودة لتسجيل الدخول",
-    "forgotPasswordLink": "نسيت كلمة المرور؟",
-    "forgotPasswordTitle": "نسيت كلمة المرور",
-    "forgotPasswordHint": "أدخل بريدك الإلكتروني، وسيتم إرسال طلبك إلى الفريق المختص لإعادة تعيين كلمة المرور.",
-    "forgotPasswordSubmit": "إرسال الطلب",
-    "forgotPasswordSent": "إذا كان البريد الإلكتروني مسجلاً لدينا، تم إرسال طلبك إلى الفريق المختص وسيتم التواصل معك."
+    "registerSuccess": "تم إرسال طلب التسجيل بنجاح، بانتظار موافقة الإدارة", "backToLogin": "العودة لتسجيل الدخول"
   },
   "common": {
     "save": "حفظ", "cancel": "إلغاء", "edit": "تعديل", "delete": "حذف", "details": "عرض",
@@ -83,6 +77,7 @@
     "submitted": "تم تقديم الطلب بنجاح",
     "thankYouTitle": "شكرًا لك!",
     "thankYouMessage": "تم تقديم طلب الإتلاف بنجاح، وسيتم مراجعته من الجهة المختصة.",
+    "updatedTitle": "تم تعديل الطلب",
     "viewRequest": "عرض الطلب",
     "requestNo": "رقم الطلب", "submittedAt": "التاريخ",
     "recordsCount": "السجلات", "adminNotes": "ملاحظات الإدارة",
@@ -104,8 +99,6 @@
     "approve": "قبول", "reject": "رفض", "confirmRejectUser": "هل تريد رفض هذا الحساب؟",
     "reviewAction": "مراجعة الطلب", "notesPlaceholder": "أضف ملاحظات للمستخدم (اختياري)...",
     "toggleStatus": "تفعيل / إيقاف", "newPasswordOptional": "كلمة مرور جديدة (اختياري)",
-    "passwordResetRequests": "طلبات إعادة تعيين كلمة المرور", "requestedAt": "تاريخ الطلب",
-    "resolved": "تم الحل", "markResolved": "تحديد كمكتمل",
     "deptSection": "الإدارة / القسم",
     "selectMainDept": "اختر الإدارة الرئيسية",
     "selectUnit": "اختر الوحدة",
