@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { I18nService } from '../../core/i18n.service';
 import { RequestListItem } from '../../core/models';
+import { sectionOrDepartment } from '../../core/record-labels';
 
 @Component({
   selector: 'app-admin-submissions',
@@ -68,8 +69,9 @@ import { RequestListItem } from '../../core/models';
                   <th class="col-text">{{ i18n.t('request.department') }}</th>
                   <th>{{ i18n.t('request.responsibleOfficer') }}</th>
                   <th style="width:60px;">{{ i18n.t('request.recordsCount') }}</th>
-                  <th style="width:125px;">{{ i18n.t('request.submittedAt') }}</th>
+                  <th style="width:125px;white-space:nowrap;">{{ i18n.t('request.submittedAt') }}</th>
                   <th style="width:110px;">{{ i18n.t('common.status') }}</th>
+                  <th style="width:120px;">{{ i18n.t('admin.destroyedColumn') }}</th>
                   <th style="width:90px;">{{ i18n.t('common.actions') }}</th>
                 </tr>
               </thead>
@@ -78,11 +80,24 @@ import { RequestListItem } from '../../core/models';
                   <tr style="cursor:pointer;" (click)="goTo(r.id)">
                     <td class="fw-bold">{{ i + 1 }}</td>
                     <td>{{ r.destructionNo ?? '—' }}</td>
-                    <td class="col-text">{{ r.department }}</td>
+                    <td class="col-text">{{ sectionOrDepartment(r.department) }}</td>
                     <td>{{ r.responsibleOfficer }}</td>
                     <td><span class="badge bg-secondary">{{ r.recordsCount }}</span></td>
-                    <td>{{ r.submittedAt | date:'dd-MM-yyyy' }}</td>
+                    <td style="white-space:nowrap;">{{ r.submittedAt | date:'dd-MM-yyyy' }}</td>
                     <td><span class="badge-status" [style]="badgeStyle(r.status)">{{ i18n.t('status.' + r.status) }}</span></td>
+                    <td>
+                      @if (r.status !== 'Approved') {
+                        <span class="text-muted">—</span>
+                      } @else if (r.isDestroyed) {
+                        <span class="badge" style="background:#E6F5F2;color:#0a5c4a;border:1px solid rgba(18,155,130,0.35);font-weight:600;">
+                          <i class="bi bi-check-lg me-1"></i>{{ i18n.t('admin.destroyedYes') }}
+                        </span>
+                      } @else {
+                        <span class="badge" style="background:#EFEAE0;color:var(--dune);border:1px solid #E1D8C4;font-weight:600;">
+                          {{ i18n.t('admin.destroyedNo') }}
+                        </span>
+                      }
+                    </td>
                     <td class="actions-cell" (click)="$event.stopPropagation()">
                       <div class="d-flex gap-1 flex-nowrap justify-content-center">
                         <a [routerLink]="['/requests', r.id]" class="btn btn-sm btn-outline-primary py-0 px-2"
@@ -121,7 +136,7 @@ import { RequestListItem } from '../../core/models';
                     </td>
                   </tr>
                 } @empty {
-                  <tr><td colspan="8" class="text-center text-muted py-5">{{ i18n.t('common.noData') }}</td></tr>
+                  <tr><td colspan="9" class="text-center text-muted py-5">{{ i18n.t('common.noData') }}</td></tr>
                 }
               </tbody>
             </table>
@@ -134,11 +149,12 @@ import { RequestListItem } from '../../core/models';
 export class AdminSubmissionsComponent {
   private readonly api = inject(ApiService);
   readonly i18n = inject(I18nService);
+  readonly sectionOrDepartment = sectionOrDepartment;
 
   readonly items = signal<RequestListItem[]>([]);
   readonly filtered = signal<RequestListItem[]>([]);
   readonly filterResultText = signal('');
-  readonly statuses = ['Submitted', 'Approved', 'Rejected', 'Draft'];
+  readonly statuses = ['Submitted', 'Approved', 'Rejected'];
 
   filterFrom = '';
   filterTo = '';

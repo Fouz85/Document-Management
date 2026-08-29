@@ -278,8 +278,8 @@ namespace RecordsDestruction.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("RecordsVolume")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<string>("Remarks")
                         .HasColumnType("nvarchar(max)");
@@ -337,6 +337,12 @@ namespace RecordsDestruction.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<DateTime?>("DestroyedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DestroyedByName")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("DestructionNo")
                         .HasColumnType("nvarchar(max)");
 
@@ -357,6 +363,9 @@ namespace RecordsDestruction.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDestroyed")
                         .HasColumnType("bit");
 
                     b.Property<DateTime?>("LastModifiedAt")
@@ -416,8 +425,8 @@ namespace RecordsDestruction.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("TotalVolume")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
 
                     b.HasKey("Id");
 

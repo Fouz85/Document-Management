@@ -14,27 +14,10 @@ namespace RecordsDestruction.Infrastructure.Services
     /// (Templates/destruction-form-template.docx) instead of building a document from scratch.</summary>
     internal static class WordGenerator
     {
-        private static readonly Dictionary<string, string> TypeLabelsAr = new()
-        {
-            ["Files"] = "ملفات",
-            ["Registers"] = "سجلات",
-            ["Maps"] = "خرائط",
-            ["Engineering Designs"] = "تصاميم هندسية",
-            ["Photos"] = "صور",
-            ["Booklets"] = "كراسات",
-            ["Books"] = "كتب",
-        };
-
-        private static readonly Dictionary<string, string> MediumLabelsAr = new()
-        {
-            ["Paper"] = "وسائط ورقية",
-            ["Electronic"] = "وسائط إلكترونية",
-            ["Audio-Visual"] = "وسائط سمعية وبصرية",
-        };
-
-        private static string TypeLabel(string? v) => v is null ? "—" : TypeLabelsAr.GetValueOrDefault(v, v);
-        private static string MediumLabel(string? v) => v is null ? "—" : MediumLabelsAr.GetValueOrDefault(v, v);
-        private static string YearOnly(DateTime? d) => d?.Year.ToString() ?? "—";
+        // 14pt everywhere — bigger than the template's own ~10pt default, so the whole document
+        // (not just the records table) stays legible, including multi-line entries (e.g. several
+        // schools listed one per line).
+        private const int DocFontSize = 28;
 
         public static byte[] GenerateDestructionRequestDocx(DestructionRequest r)
         {
@@ -120,7 +103,7 @@ namespace RecordsDestruction.Infrastructure.Services
         private static TableCell Cell(Table t, int row, int col) =>
             t.Elements<TableRow>().ElementAt(row).Elements<TableCell>().ElementAt(col);
 
-        private static void SetCellText(TableCell cell, string? value, bool center = false)
+        private static void SetCellText(TableCell cell, string? value, bool center = false, int? fontSizeHalfPoints = null, bool rtl = true)
         {
             var para = cell.Elements<Paragraph>().FirstOrDefault();
             if (para is null) return;
@@ -130,21 +113,46 @@ namespace RecordsDestruction.Infrastructure.Services
                 para.ParagraphProperties ??= new ParagraphProperties();
                 para.ParagraphProperties.Justification = new Justification { Val = JustificationValues.Center };
             }
-            para.AppendChild(new Run(new Text(value ?? "—") { Space = SpaceProcessingModeValues.Preserve }));
+            // A raw "\n" inside <w:t> isn't a line break in OOXML — split on it and join the runs
+            // with an explicit <w:br/>, so multi-line input (e.g. one school per line) renders as
+            // separate lines instead of one run of text with the newlines silently dropped.
+            var lines = (value ?? "—").Replace("\r\n", "\n").Split('\n');
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (i > 0) para.AppendChild(new Run(new Break()));
+                var run = new Run(new Text(lines[i]) { Space = SpaceProcessingModeValues.Preserve });
+                // The template's own runs are marked right-to-left; a freshly-created Run isn't, and
+                // without that flag Word's bidi algorithm can visually reorder mixed Arabic/Latin
+                // content (e.g. "A4" or "(...)" embedded in an Arabic phrase) even though the
+                // underlying text is stored in the correct order. A pure "YYYY\NN" code (Destruction
+                // No.) is the opposite case — it must stay left-to-right, so callers pass rtl: false.
+                var props = new RunProperties();
+                if (rtl) props.Append(new RightToLeftText());
+                if (fontSizeHalfPoints is not null)
+                {
+                    // Word uses w:sz for Latin/digit runs and w:szCs for Arabic (complex-script) runs —
+                    // both need setting, or Arabic text silently keeps the template's original size.
+                    var sz = fontSizeHalfPoints.Value.ToString();
+                    props.Append(new FontSize { Val = sz });
+                    props.Append(new FontSizeComplexScript { Val = sz });
+                }
+                run.RunProperties = props;
+                para.AppendChild(run);
+            }
         }
 
         private static void FillInfoTable(Table t, DestructionRequest r)
         {
-            SetCellText(Cell(t, 0, 1), r.ConcernedParty);
-            SetCellText(Cell(t, 1, 1), r.DestructionNo);
-            SetCellText(Cell(t, 4, 1), r.Department);
-            SetCellText(Cell(t, 5, 1), r.ResponsibleOfficer);
-            SetCellText(Cell(t, 6, 1), r.Email);
-            SetCellText(Cell(t, 7, 1), r.Phone);
-            SetCellText(Cell(t, 10, 1), r.StorageLocation);
-            SetCellText(Cell(t, 11, 1), r.TotalVolume?.ToString("0.00"));
-            SetCellText(Cell(t, 12, 1), YearOnly(r.RecordsFirstDate), center: true);
-            SetCellText(Cell(t, 13, 1), YearOnly(r.RecordsLastDate), center: true);
+            SetCellText(Cell(t, 0, 1), r.ConcernedParty, fontSizeHalfPoints: DocFontSize);
+            SetCellText(Cell(t, 1, 1), r.DestructionNo, fontSizeHalfPoints: DocFontSize, rtl: false);
+            SetCellText(Cell(t, 4, 1), RecordLabels.SectionOrDepartment(r.Department), fontSizeHalfPoints: DocFontSize);
+            SetCellText(Cell(t, 5, 1), r.ResponsibleOfficer, fontSizeHalfPoints: DocFontSize);
+            SetCellText(Cell(t, 6, 1), r.Email, fontSizeHalfPoints: DocFontSize, rtl: false);
+            SetCellText(Cell(t, 7, 1), r.Phone, fontSizeHalfPoints: DocFontSize, rtl: false);
+            SetCellText(Cell(t, 10, 1), r.StorageLocation, fontSizeHalfPoints: DocFontSize);
+            SetCellText(Cell(t, 11, 1), RecordLabels.VolumeText(r.TotalVolume), fontSizeHalfPoints: DocFontSize);
+            SetCellText(Cell(t, 12, 1), RecordLabels.YearOnly(r.RecordsFirstDate), center: true, fontSizeHalfPoints: DocFontSize);
+            SetCellText(Cell(t, 13, 1), RecordLabels.YearOnly(r.RecordsLastDate), center: true, fontSizeHalfPoints: DocFontSize);
         }
 
         private static void FillRecordsTable(Table t, DestructionRequest r)
@@ -165,16 +173,16 @@ namespace RecordsDestruction.Infrastructure.Services
                                   : rec.OriginalOrCopy == "Copy" ? "صورة"
                                   : rec.OriginalOrCopy ?? "—";
 
-                SetCellText(cells[0], rec.SerialNo.ToString(), center: true);
-                SetCellText(cells[1], rec.RecordsTitle);
-                SetCellText(cells[2], copyLabel, center: true);
-                SetCellText(cells[3], TypeLabel(rec.RecordsType), center: true);
-                SetCellText(cells[4], MediumLabel(rec.StorageMedium), center: true);
-                SetCellText(cells[5], rec.RetentionRuleNo ?? "/", center: true);
-                SetCellText(cells[6], YearOnly(rec.FirstDate), center: true);
-                SetCellText(cells[7], YearOnly(rec.LastDate), center: true);
-                SetCellText(cells[8], rec.RecordsVolume?.ToString("0.00"), center: true);
-                SetCellText(cells[9], rec.Remarks);
+                SetCellText(cells[0], rec.SerialNo.ToString(), center: true, fontSizeHalfPoints: DocFontSize);
+                SetCellText(cells[1], rec.RecordsTitle, fontSizeHalfPoints: DocFontSize);
+                SetCellText(cells[2], copyLabel, center: true, fontSizeHalfPoints: DocFontSize);
+                SetCellText(cells[3], RecordLabels.TypeLabel(rec.RecordsType), center: true, fontSizeHalfPoints: DocFontSize);
+                SetCellText(cells[4], RecordLabels.MediumLabel(rec.StorageMedium), center: true, fontSizeHalfPoints: DocFontSize);
+                SetCellText(cells[5], rec.RetentionRuleNo ?? "/", center: true, fontSizeHalfPoints: DocFontSize);
+                SetCellText(cells[6], RecordLabels.YearOnly(rec.FirstDate), center: true, fontSizeHalfPoints: DocFontSize);
+                SetCellText(cells[7], RecordLabels.YearOnly(rec.LastDate), center: true, fontSizeHalfPoints: DocFontSize);
+                SetCellText(cells[8], RecordLabels.VolumeText(rec.RecordsVolume), center: true, fontSizeHalfPoints: DocFontSize);
+                SetCellText(cells[9], rec.Remarks ?? "", fontSizeHalfPoints: DocFontSize);
             }
         }
 
@@ -190,8 +198,8 @@ namespace RecordsDestruction.Infrastructure.Services
 
             foreach (var b in blocks)
             {
-                SetCellText(Cell(t, 2, b.col), b.name);
-                SetCellText(Cell(t, 4, b.col), b.date?.ToString("dd/MM/yyyy"));
+                SetCellText(Cell(t, 2, b.col), b.name, fontSizeHalfPoints: DocFontSize);
+                SetCellText(Cell(t, 4, b.col), b.date?.ToString("dd/MM/yyyy"), fontSizeHalfPoints: DocFontSize);
 
                 if (!string.IsNullOrEmpty(b.sig) && b.sig.StartsWith("data:image"))
                 {

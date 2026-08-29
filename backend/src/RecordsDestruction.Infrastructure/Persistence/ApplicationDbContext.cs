@@ -39,13 +39,13 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplica
         builder.Entity<DestructionRequest>(e =>
         {
             e.Property(x => x.Status).HasMaxLength(50);
-            e.Property(x => x.TotalVolume).HasPrecision(18, 2);
+            e.Property(x => x.TotalVolume).HasPrecision(18, 4);
             e.HasQueryFilter(x => !x.IsDeleted);
         });
 
         builder.Entity<DestructionRecord>(e =>
         {
-            e.Property(x => x.RecordsVolume).HasPrecision(18, 2);
+            e.Property(x => x.RecordsVolume).HasPrecision(18, 4);
             e.HasOne(x => x.DestructionRequest).WithMany(r => r.Records)
              .HasForeignKey(x => x.DestructionRequestId).OnDelete(DeleteBehavior.Cascade);
             // Filter must match parent's filter to avoid orphan warnings.

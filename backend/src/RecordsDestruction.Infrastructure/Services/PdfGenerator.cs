@@ -8,29 +8,12 @@ namespace RecordsDestruction.Infrastructure.Services
 {
     internal static class PdfGenerator
     {
+        // Applied to every actual data value (not the static labels/headers around it) — bigger than
+        // the page's 9pt default so the whole document, not just the records table, stays legible,
+        // including multi-line entries (e.g. several schools listed one per line).
+        private const float DocFontSize = 14f;
+
         private static bool _fontRegistered = false;
-
-        private static readonly Dictionary<string, string> TypeLabelsAr = new()
-        {
-            ["Files"] = "ملفات",
-            ["Registers"] = "سجلات",
-            ["Maps"] = "خرائط",
-            ["Engineering Designs"] = "تصاميم هندسية",
-            ["Photos"] = "صور",
-            ["Booklets"] = "كراسات",
-            ["Books"] = "كتب",
-        };
-
-        private static readonly Dictionary<string, string> MediumLabelsAr = new()
-        {
-            ["Paper"] = "وسائط ورقية",
-            ["Electronic"] = "وسائط إلكترونية",
-            ["Audio-Visual"] = "وسائط سمعية وبصرية",
-        };
-
-        private static string TypeLabel(string? v) => v is null ? "—" : TypeLabelsAr.GetValueOrDefault(v, v);
-        private static string MediumLabel(string? v) => v is null ? "—" : MediumLabelsAr.GetValueOrDefault(v, v);
-        private static string YearOnly(DateTime? d) => d?.Year.ToString() ?? "—";
 
         public static byte[] GenerateDestructionRequestPdf(
             DestructionRequest r,
@@ -45,23 +28,25 @@ namespace RecordsDestruction.Infrastructure.Services
             {
                 try
                 {
-                    var fontPaths = new[]
+                    foreach (var fileName in new[] { "Lusail-Regular.otf", "Lusail-Bold.otf" })
                     {
-                        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "fonts", "NotoSansArabic-Regular.ttf"),
-                        Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "fonts", "NotoSansArabic-Regular.ttf"),
-                        "/app/wwwroot/fonts/NotoSansArabic-Regular.ttf",
-                        "/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf",
-                    };
-                    foreach (var fp in fontPaths)
-                    {
-                        if (File.Exists(fp))
+                        var fontPaths = new[]
                         {
-                            using var fs = File.OpenRead(fp);
-                            QuestPDF.Drawing.FontManager.RegisterFont(fs);
-                            _fontRegistered = true;
-                            break;
+                            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "fonts", fileName),
+                            Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "fonts", fileName),
+                            $"/app/wwwroot/fonts/{fileName}",
+                        };
+                        foreach (var fp in fontPaths)
+                        {
+                            if (File.Exists(fp))
+                            {
+                                using var fs = File.OpenRead(fp);
+                                QuestPDF.Drawing.FontManager.RegisterFont(fs);
+                                break;
+                            }
                         }
                     }
+                    _fontRegistered = true;
                 }
                 catch { }
             }
@@ -82,7 +67,7 @@ namespace RecordsDestruction.Infrastructure.Services
                     page.Size(PageSizes.A4.Landscape());
                     page.Margin(10);
                     page.PageColor(Colors.White);
-                    page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Noto Sans Arabic"));
+                    page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Lusail"));
 
                     page.Content().Column(col =>
                     {
@@ -99,7 +84,7 @@ namespace RecordsDestruction.Infrastructure.Services
                     page.Size(PageSizes.A4.Landscape());
                     page.Margin(10);
                     page.PageColor(Colors.White);
-                    page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Noto Sans Arabic"));
+                    page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Lusail"));
 
                     page.Content().Column(col =>
                     {
@@ -116,7 +101,7 @@ namespace RecordsDestruction.Infrastructure.Services
                     page.Size(PageSizes.A4.Landscape());
                     page.Margin(10);
                     page.PageColor(Colors.White);
-                    page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Noto Sans Arabic"));
+                    page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Lusail"));
 
                     page.Content().Column(col =>
                     {
@@ -243,7 +228,7 @@ namespace RecordsDestruction.Infrastructure.Services
                         x.RelativeColumn(1.4f); x.RelativeColumn(2.5f); x.RelativeColumn(1.4f);
                     });
                     BilingualRow(t, "Concerned Party:", r.ConcernedParty, ":الجهة المعنية");
-                    BilingualRow(t, "Destruction No.:", r.DestructionNo ?? "—", ":إتلاف رقم");
+                    BilingualRow(t, "Destruction No.:", r.DestructionNo ?? "—", ":إتلاف رقم", valueIsLtr: true);
                 });
 
                 var leftHandBytes  = RemoveWhiteBackground(LoadImageBytes(
@@ -281,7 +266,7 @@ namespace RecordsDestruction.Infrastructure.Services
                     {
                         x.RelativeColumn(1.4f); x.RelativeColumn(2.5f); x.RelativeColumn(1.4f);
                     });
-                    BilingualRow(t, "Records Creator Unit / Section:", r.Department,          ":الإدارة / القسم");
+                    BilingualRow(t, "Records Creator Unit / Section:", RecordLabels.SectionOrDepartment(r.Department), ":الإدارة / القسم");
                     BilingualRow(t, "Responsible Officer:",             r.ResponsibleOfficer,  ":الموظف المسؤول");
                     BilingualRow(t, "Email address:",                   r.Email,               ":البريد الإلكتروني");
                     BilingualRow(t, "Tel.:",                            r.Phone,               ":الهاتف");
@@ -298,13 +283,13 @@ namespace RecordsDestruction.Infrastructure.Services
                     BilingualRow(t, "Records Storage Location Address:", r.StorageLocation,
                                     ":عنوان مكان حفظ الوثائق");
                     BilingualRow(t, "Total Volume (linear meter):",
-                                    (r.TotalVolume?.ToString("0.00") ?? "—") + " m",
+                                    RecordLabels.VolumeText(r.TotalVolume) + " m",
                                     ":(الحجم الإجمالي (متر طولي");
                     BilingualRow(t, "Records First Date:",
-                                    YearOnly(r.RecordsFirstDate),
+                                    RecordLabels.YearOnly(r.RecordsFirstDate),
                                     ":التاريخ الأدنى");
                     BilingualRow(t, "Records Last Date:",
-                                    YearOnly(r.RecordsLastDate),
+                                    RecordLabels.YearOnly(r.RecordsLastDate),
                                     ":التاريخ الأقصى");
                 });
             });
@@ -362,21 +347,21 @@ namespace RecordsDestruction.Infrastructure.Services
                         string bg = rec.SerialNo % 2 == 0 ? "#fdf8f8" : Colors.White;
                         void Cell(string val) =>
                             t.Cell().Background(bg).BorderBottom(1).BorderColor("#eeeeee")
-                             .Padding(3).AlignCenter().AlignMiddle().Text(val).FontSize(7.5f);
+                             .Padding(3).AlignCenter().AlignMiddle().Text(val).FontSize(DocFontSize);
 
                         t.Cell().Background(bg).BorderBottom(1).BorderColor("#eeeeee")
                          .Padding(3).AlignRight().AlignMiddle()
-                         .Text(rec.Remarks ?? "—").FontSize(7.5f).DirectionFromRightToLeft();
-                        Cell(rec.RecordsVolume?.ToString("0.00") ?? "—");
-                        Cell(YearOnly(rec.LastDate));
-                        Cell(YearOnly(rec.FirstDate));
+                         .Text(rec.Remarks ?? "").FontSize(DocFontSize).DirectionFromRightToLeft();
+                        Cell(RecordLabels.VolumeText(rec.RecordsVolume));
+                        Cell(RecordLabels.YearOnly(rec.LastDate));
+                        Cell(RecordLabels.YearOnly(rec.FirstDate));
                         Cell(rec.RetentionRuleNo ?? "—");
-                        Cell(MediumLabel(rec.StorageMedium));
-                        Cell(TypeLabel(rec.RecordsType));
+                        Cell(RecordLabels.MediumLabel(rec.StorageMedium));
+                        Cell(RecordLabels.TypeLabel(rec.RecordsType));
                         Cell(rec.OriginalOrCopy  ?? "—");
                         t.Cell().Background(bg).BorderBottom(1).BorderColor("#eeeeee")
                          .Padding(3).AlignRight().AlignMiddle()
-                         .Text(rec.RecordsTitle ?? "—").FontSize(7.5f).DirectionFromRightToLeft();
+                         .Text(rec.RecordsTitle ?? "—").FontSize(DocFontSize).DirectionFromRightToLeft();
                         Cell(rec.SerialNo.ToString());
                     }
                 });
@@ -442,7 +427,7 @@ namespace RecordsDestruction.Infrastructure.Services
                                         .DirectionFromRightToLeft();
                                 });
                                 inner.Item().AlignCenter()
-                                    .Text(s.Item2 ?? "...............").FontSize(8f).Bold();
+                                    .Text(s.Item2 ?? "...............").FontSize(DocFontSize);
                                 inner.Item().PaddingTop(2).Height(1).Background("#A29475");
 
                                 inner.Item().PaddingTop(3).Row(r2 =>
@@ -453,7 +438,7 @@ namespace RecordsDestruction.Infrastructure.Services
                                         .DirectionFromRightToLeft();
                                 });
                                 inner.Item().AlignCenter()
-                                    .Text(s.Item3?.ToString("dd/MM/yyyy") ?? "...............").FontSize(8f).Bold();
+                                    .Text(s.Item3?.ToString("dd/MM/yyyy") ?? "...............").FontSize(DocFontSize);
                                 inner.Item().PaddingTop(2).Height(1).Background("#A29475");
 
                                 inner.Item().PaddingTop(3).Row(r2 =>
@@ -516,14 +501,17 @@ namespace RecordsDestruction.Infrastructure.Services
         }
 
         private static void BilingualRow(TableDescriptor t,
-            string enLabel, string? val, string arLabel)
+            string enLabel, string? val, string arLabel, bool valueIsLtr = false)
         {
             t.Cell().Background("#fdf0f2").Border(1).BorderColor("#e0e0e0")
              .Padding(3).AlignLeft()
              .Text(enLabel).Bold().FontSize(7.5f).FontColor("#8A1538");
-            t.Cell().Border(1).BorderColor("#e0e0e0")
+            var valueText = t.Cell().Border(1).BorderColor("#e0e0e0")
              .Padding(3).AlignCenter()
-             .Text(val ?? "—").FontSize(7.5f);
+             .Text(val ?? "—").FontSize(DocFontSize);
+            // A "YYYY\NN" value like "2026\17" sits in an otherwise right-to-left row — without
+            // forcing left-to-right here, the digits around the backslash render out of order.
+            if (valueIsLtr) valueText.DirectionFromLeftToRight();
             t.Cell().Background("#fdf0f2").Border(1).BorderColor("#e0e0e0")
              .Padding(3).AlignRight()
              .Text(arLabel).Bold().FontSize(7.5f).FontColor("#8A1538")

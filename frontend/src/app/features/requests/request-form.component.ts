@@ -1,7 +1,8 @@
-import { Component, computed, inject, signal } from '@angular/core';
-import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { AbstractControl, FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, NavigationEnd, Router, RouterLink } from '@angular/router';
+import { filter, firstValueFrom } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
@@ -72,35 +73,22 @@ const STORAGE_LOCATIONS = [
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label" for="UnitSelect">{{ i18n.t('request.department') }} <span class="text-danger">*</span></label>
-              @if (lockedDept() && noSections()) {
-                <input id="UnitSelect" class="form-control readonly-field" readonly [value]="unitDeptName()">
-              } @else {
-                <select id="UnitSelect" class="form-control"
-                        [class.readonly-field]="lockedDept()"
-                        [class.field-invalid]="submitAttempted() && selectedUnitId() === ''"
-                        [style.pointer-events]="lockedDept() ? 'none' : 'auto'"
-                        (change)="pickUnit($event)">
-                  <option value="" [selected]="selectedUnitId() === ''">-- {{ i18n.t('request.selectDepartment') }} --</option>
-                  @for (u of rootUnits(); track u.id) { <option [value]="u.id" [selected]="u.id === selectedUnitId()">{{ u.name }}</option> }
-                </select>
-              }
+              <select id="UnitSelect" class="form-control"
+                      [class.field-invalid]="submitAttempted() && selectedUnitId() === ''"
+                      (change)="pickUnit($event)">
+                <option value="" [selected]="selectedUnitId() === ''">-- {{ i18n.t('request.selectDepartment') }} --</option>
+                @for (u of rootUnits(); track u.id) { <option [value]="u.id" [selected]="u.id === selectedUnitId()">{{ u.name }}</option> }
+              </select>
             </div>
             <div class="col-md-6">
               <label class="form-label" for="SubSubSelect">{{ i18n.t('request.section') }}</label>
               @if (isSchoolUnit()) {
                 <input id="SubSubSelect" class="form-control"
-                       [class.readonly-field]="lockedDept()"
                        [class.field-invalid]="submitAttempted() && !schoolName().trim()"
-                       [style.pointer-events]="lockedDept() ? 'none' : 'auto'"
                        [value]="schoolName()" (input)="pickSchoolName($event)"
                        [placeholder]="i18n.t('request.schoolNamePlaceholder')">
-              } @else if (lockedDept() && noSections()) {
-                <input class="form-control readonly-field" readonly [value]="selectedUnitName()">
               } @else {
-                <select id="SubSubSelect" class="form-control"
-                        [class.readonly-field]="lockedDept()"
-                        [style.pointer-events]="lockedDept() ? 'none' : 'auto'"
-                        (change)="pickSection($event)">
+                <select id="SubSubSelect" class="form-control" (change)="pickSection($event)">
                   <option value="" [selected]="selectedSectionId() === ''">-- {{ i18n.t('request.selectSection') }} --</option>
                   @for (u of sections(); track u.id) { <option [value]="u.id" [selected]="u.id === selectedSectionId()">{{ u.name }}</option> }
                 </select>
@@ -112,7 +100,7 @@ const STORAGE_LOCATIONS = [
             </div>
             <div class="col-md-6">
               <label class="form-label" for="Email">{{ i18n.t('request.email') }} <span class="text-danger">*</span></label>
-              <input id="Email" type="email" class="form-control" formControlName="email" dir="ltr">
+              <input id="Email" type="email" class="form-control" formControlName="email" dir="ltr" [class.field-invalid]="invalid('email')">
             </div>
             <div class="col-md-6">
               <label class="form-label" for="Phone">{{ i18n.t('request.phone') }} <span class="text-danger">*</span></label>
@@ -149,14 +137,14 @@ const STORAGE_LOCATIONS = [
                      [placeholder]="i18n.t('request.totalVolumePlaceholder')" [class.field-invalid]="invalid('totalVolume')">
             </div>
             <div class="col-md-4">
-              <label class="form-label" for="FirstYear">{{ i18n.t('request.firstDate') }} <span class="text-danger">*</span></label>
+              <label class="form-label" for="FirstYear">{{ i18n.t('request.firstDate') }}</label>
               <input id="FirstYear" type="number" class="form-control" formControlName="firstYear"
-                     [placeholder]="i18n.t('request.yearExampleFirst')" min="1900" max="2100" [class.field-invalid]="invalid('firstYear')">
+                     [placeholder]="i18n.t('request.yearExampleFirst')" min="1900" max="2100">
             </div>
             <div class="col-md-4">
-              <label class="form-label" for="LastYear">{{ i18n.t('request.lastDate') }} <span class="text-danger">*</span></label>
+              <label class="form-label" for="LastYear">{{ i18n.t('request.lastDate') }}</label>
               <input id="LastYear" type="number" class="form-control" formControlName="lastYear"
-                     [placeholder]="i18n.t('request.yearExampleLast')" min="1900" max="2100" [class.field-invalid]="invalid('lastYear')">
+                     [placeholder]="i18n.t('request.yearExampleLast')" min="1900" max="2100">
             </div>
           </div>
         </div>
@@ -194,10 +182,10 @@ const STORAGE_LOCATIONS = [
                     {{ i18n.t('request.retentionRuleNo') }}<br><small style="font-size:0.62rem;">Records Retention Rule No. in R.R.D.S</small>
                   </th>
                   <th style="width:90px;padding:10px 6px;line-height:1.6;">
-                    {{ i18n.t('request.firstYear') }} <span style="color:var(--gold-light);">*</span><br><small>First Date</small>
+                    {{ i18n.t('request.firstYear') }}<br><small>First Date</small>
                   </th>
                   <th style="width:90px;padding:10px 6px;line-height:1.6;">
-                    {{ i18n.t('request.lastYear') }} <span style="color:var(--gold-light);">*</span><br><small>Last Date</small>
+                    {{ i18n.t('request.lastYear') }}<br><small>Last Date</small>
                   </th>
                   <th style="width:80px;padding:10px 6px;line-height:1.6;">
                     {{ i18n.t('request.recordsVolume') }} <span style="color:var(--gold-light);">*</span><br><small>Records Volume (in linear meter)</small>
@@ -212,7 +200,7 @@ const STORAGE_LOCATIONS = [
                 @for (rec of records.controls; track rec; let i = $index) {
                   <tr [formGroupName]="i">
                     <td class="text-center fw-bold">{{ i + 1 }}</td>
-                    <td><input class="form-control form-control-sm" formControlName="recordsTitle" [placeholder]="i18n.t('request.recordsTitlePlaceholder')" [class.field-invalid]="recordInvalid(rec, 'recordsTitle')"></td>
+                    <td><textarea class="form-control form-control-sm" rows="1" style="resize:vertical;min-height:calc(1.5em + 0.5rem + 2px);" formControlName="recordsTitle" [placeholder]="i18n.t('request.recordsTitlePlaceholder')" [class.field-invalid]="recordInvalid(rec, 'recordsTitle')"></textarea></td>
                     <td>
                       <select class="form-select form-select-sm" formControlName="originalOrCopy" [class.field-invalid]="recordInvalid(rec, 'originalOrCopy')">
                         <option value="">—</option>
@@ -261,8 +249,8 @@ const STORAGE_LOCATIONS = [
                       </div>
                     </td>
                     <td><input class="form-control form-control-sm" formControlName="retentionRuleNo" [placeholder]="i18n.t('request.ruleNoPlaceholder')"></td>
-                    <td><input type="number" class="form-control form-control-sm" formControlName="firstYear" placeholder="2020" min="1900" max="2100" [class.field-invalid]="recordInvalid(rec, 'firstYear')"></td>
-                    <td><input type="number" class="form-control form-control-sm" formControlName="lastYear" placeholder="2024" min="1900" max="2100" [class.field-invalid]="recordInvalid(rec, 'lastYear')"></td>
+                    <td><input type="number" class="form-control form-control-sm" formControlName="firstYear" placeholder="2020" min="1900" max="2100"></td>
+                    <td><input type="number" class="form-control form-control-sm" formControlName="lastYear" placeholder="2024" min="1900" max="2100"></td>
                     <td><input type="number" step="0.01" min="0" class="form-control form-control-sm" formControlName="recordsVolume" placeholder="0.00" [class.field-invalid]="recordInvalid(rec, 'recordsVolume')"></td>
                     <td><input class="form-control form-control-sm" formControlName="remarks" [placeholder]="i18n.t('request.remarks')"></td>
                     <td class="text-center">
@@ -292,9 +280,7 @@ const STORAGE_LOCATIONS = [
                   <div class="card-body p-3">
                     <div class="mb-2">
                       <label class="form-label mb-1" style="font-size:0.75rem;">{{ i18n.t('request.name') }}</label>
-                      <input class="form-control form-control-sm" formControlName="name"
-                             [class.readonly-field]="block.key === 'creatorUnit'"
-                             [readonly]="block.key === 'creatorUnit'">
+                      <input class="form-control form-control-sm" formControlName="name">
                     </div>
                     <div class="mb-2">
                       <label class="form-label mb-1" style="font-size:0.75rem;">{{ i18n.t('request.date') }}</label>
@@ -355,8 +341,6 @@ export class RequestFormComponent {
   readonly selectedSectionId = signal<number | ''>('');
   readonly schoolName = signal('');
   readonly isSchoolUnit = computed(() => this.rootUnits().find(u => u.id === this.selectedUnitId())?.name === SCHOOL_UNIT_NAME);
-  /** Department is locked (readonly greyed selects) when prefilled from the user profile — like the old app. */
-  readonly lockedDept = signal(false);
   readonly busy = signal(false);
   readonly message = signal<string | null>(null);
   readonly submitAttempted = signal(false);
@@ -378,8 +362,8 @@ export class RequestFormComponent {
     phone: ['', [Validators.required, Validators.pattern(QATAR_PHONE)]],
     storageLocation: ['', Validators.required],
     totalVolume: [null as number | null, Validators.required],
-    firstYear: [null as number | null, Validators.required],
-    lastYear: [null as number | null, Validators.required],
+    firstYear: [null as number | null],
+    lastYear: [null as number | null],
     creatorUnit: this.signatureGroup(),
     legalAffairs: this.signatureGroup(),
     internalAudit: this.signatureGroup(),
@@ -398,20 +382,32 @@ export class RequestFormComponent {
     return id === '' ? [] : (this.rootUnits().find(u => u.id === id)?.children ?? []);
   }
 
-  /** True once a unit with no sub-departments of its own is selected — nothing meaningful to pick in "القسم". */
-  noSections(): boolean {
-    return this.selectedUnitId() !== '' && !this.isSchoolUnit() && this.sections().length === 0;
-  }
-  selectedUnitName(): string {
-    return this.rootUnits().find(u => u.id === this.selectedUnitId())?.name ?? '';
-  }
-  /** The top-level department that owns the selected unit — shown in place of the unit when it has no sections. */
-  unitDeptName(): string {
-    const id = this.selectedUnitId();
-    return this.departments().find(d => d.units.some(u => u.id === id))?.name ?? '';
+  constructor() {
+    this.load();
+    // "New Request" links point at the same "/requests/new" URL as this route: after a
+    // submission (submittedOk set), clicking it again is a same-URL navigation, which Angular
+    // would otherwise ignore — reset back to a fresh form instead of leaving the thank-you screen up.
+    this.router.events
+      .pipe(
+        filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+        takeUntilDestroyed(inject(DestroyRef))
+      )
+      .subscribe(() => {
+        if (this.submittedOk() !== null && !this.route.snapshot.paramMap.get('id')) {
+          this.resetForNewRequest();
+        }
+      });
   }
 
-  constructor() { this.load(); }
+  private async resetForNewRequest(): Promise<void> {
+    this.submittedOk.set(null);
+    this.editId.set(null);
+    this.message.set(null);
+    this.submitAttempted.set(false);
+    this.form.reset({ concernedParty: 'وزارة التربية والتعليم والتعليم العالي' });
+    this.records.clear();
+    await this.initNewRequest();
+  }
 
   private async load(): Promise<void> {
     // Set synchronously (before any await) so templates gated on editId() — e.g. hiding "Complete
@@ -458,22 +454,10 @@ export class RequestFormComponent {
     }
   }
 
-  /** Prefill from the logged-in user, exactly like the old Create GET. */
   private async initNewRequest(): Promise<void> {
-    const session = this.auth.session();
-    this.form.patchValue({
-      responsibleOfficer: session?.fullName ?? '',
-      email: session?.email ?? ''
-    });
-    this.form.get('creatorUnit')?.patchValue({ name: session?.fullName ?? '' });
     this.selectedUnitId.set('');
     this.selectedSectionId.set('');
     this.schoolName.set('');
-    this.lockedDept.set(false);
-    if (session?.department) {
-      this.form.patchValue({ department: session.department });
-      this.preselectDepartment(session.department);
-    }
     const next = await firstValueFrom(this.api.nextDestructionNo());
     this.form.patchValue({ destructionNo: next.destructionNo });
     this.addRecord();
@@ -491,19 +475,27 @@ export class RequestFormComponent {
     await this.initNewRequest();
   }
 
-  /** Old format: "الوزير - إدارة X - قسم Y" → preselect + lock the selects. */
+  /** Restores the unit/section (and school-name) selection from a saved "department" string.
+   * Handles both formats seen across the app: this form's own "Unit - Section" (2-part), and the
+   * legacy "Department - Unit - Section" (3-part) carried over from a user's profile — by trying
+   * each part in turn as the unit name instead of assuming a fixed position. */
   private preselectDepartment(dept: string | null | undefined): void {
     if (!dept) return;
     const parts = dept.split(' - ').map(p => p.trim());
-    const unitName = parts.length >= 2 ? parts[1] : parts[0];
-    const unit = this.rootUnits().find(u => u.name === unitName);
-    if (!unit) return;
-    this.selectedUnitId.set(unit.id);
-    if (parts.length >= 3) {
-      const section = unit.children.find(c => c.name === parts[2]);
-      if (section) this.selectedSectionId.set(section.id);
+    for (let i = 0; i < parts.length; i++) {
+      const unit = this.rootUnits().find(u => u.name === parts[i]);
+      if (!unit) continue;
+      this.selectedUnitId.set(unit.id);
+      const rest = parts.slice(i + 1);
+      if (rest.length === 0) return;
+      if (unit.name === SCHOOL_UNIT_NAME) {
+        this.schoolName.set(rest.join(' - '));
+      } else {
+        const section = unit.children.find(c => c.name === rest[0]);
+        if (section) this.selectedSectionId.set(section.id);
+      }
+      return;
     }
-    this.lockedDept.set(true);
   }
 
   pickUnit(e: Event): void {
@@ -533,13 +525,27 @@ export class RequestFormComponent {
       recordsTitle: ['', Validators.required], originalOrCopy: ['', Validators.required],
       recordsType: ['', Validators.required], storageMedium: ['', Validators.required],
       retentionRuleNo: [''],
-      firstYear: [null as number | null, Validators.required], lastYear: [null as number | null, Validators.required],
+      firstYear: [null as number | null], lastYear: [null as number | null],
       recordsVolume: [null as number | null, Validators.required], remarks: ['']
     }));
   }
+  /** Fields whose emptiness always turns them red immediately, draft or not — the volume matters
+   * enough to flag right away, even though (like the dates) it doesn't block saving as a draft. */
+  private readonly alwaysStrictFields = new Set(['totalVolume', 'recordsVolume']);
+
+  /** A control failing only because it's empty ("required") shouldn't turn red until a final
+   * submit was actually attempted — a draft is allowed to leave it blank. A control failing on
+   * anything else (format, e.g. email/phone), or listed in alwaysStrictFields, always turns red
+   * once touched, draft or not. */
+  private isInvalidToShow(c: { invalid: boolean; touched: boolean; dirty: boolean; errors: Record<string, unknown> | null } | null, name: string): boolean {
+    if (!c || !c.invalid || !(c.touched || c.dirty)) return false;
+    if (this.alwaysStrictFields.has(name)) return true;
+    const onlyRequired = Object.keys(c.errors ?? {}).every(k => k === 'required');
+    return this.submitAttempted() || !onlyRequired;
+  }
+
   recordInvalid(rec: FormGroup, name: string): boolean {
-    const c = rec.get(name);
-    return !!c && c.invalid && (c.touched || c.dirty);
+    return this.isInvalidToShow(rec.get(name), name);
   }
   removeRecord(i: number): void { this.records.removeAt(i); }
 
@@ -580,8 +586,20 @@ export class RequestFormComponent {
   }
 
   invalid(name: string): boolean {
-    const c = this.form.get(name);
-    return !!c && c.invalid && (c.touched || c.dirty);
+    return this.isInvalidToShow(this.form.get(name), name);
+  }
+
+  /** A draft may leave required fields empty, but any field that does have a value must still
+   * be correctly formatted (e.g. a real email address) — drafts skip completeness, not correctness. */
+  private hasFormatErrors(): boolean {
+    const walk = (control: AbstractControl): boolean => {
+      if (control instanceof FormGroup || control instanceof FormArray) {
+        return Object.values(control.controls).some(walk);
+      }
+      const errors = control.errors;
+      return !!errors && Object.keys(errors).some(k => k !== 'required');
+    };
+    return walk(this.form);
   }
 
   async submit(asDraft: boolean): Promise<void> {
@@ -589,6 +607,11 @@ export class RequestFormComponent {
     if (!asDraft && this.form.invalid) {
       this.form.markAllAsTouched();
       this.message.set('common.fillRequired');
+      return;
+    }
+    if (asDraft && this.hasFormatErrors()) {
+      this.form.markAllAsTouched();
+      this.message.set('common.invalidFormat');
       return;
     }
     const schoolNameMissing = !asDraft && this.isSchoolUnit() && !this.schoolName().trim();
@@ -659,7 +682,9 @@ export class RequestFormComponent {
     return b ? { ...b, date: b.date?.substring(0, 10) ?? null } : {};
   }
   private sigOut(b: { name: string; date: string | null; signature: string | null; stamp: string | null }) {
-    return { name: b.name || null, date: b.date, signature: b.signature, stamp: b.stamp };
+    // A native <input type="date"> reports an untouched/cleared value as "" (never null) — sending
+    // that straight through fails server-side JSON binding to DateTime? ("" isn't a valid date).
+    return { name: b.name || null, date: b.date || null, signature: b.signature, stamp: b.stamp };
   }
   private year(d?: string | null): number | null {
     return d ? new Date(d).getFullYear() : null;

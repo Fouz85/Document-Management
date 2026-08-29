@@ -2,6 +2,44 @@
    Design system ported 1:1 from the original _Layout.cshtml
    Qatar government visual identity — MOEHE
    ====================================================================== */
+
+@font-face {
+    font-family: 'Lusail';
+    src: url('/fonts/Lusail/Lusail-Light.woff2') format('woff2'),
+         url('/fonts/Lusail/Lusail-Light.woff') format('woff'),
+         url('/fonts/Lusail/Lusail-Light.otf') format('opentype');
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Lusail';
+    src: url('/fonts/Lusail/Lusail-Regular.woff2') format('woff2'),
+         url('/fonts/Lusail/Lusail-Regular.woff') format('woff'),
+         url('/fonts/Lusail/Lusail-Regular.otf') format('opentype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Lusail';
+    src: url('/fonts/Lusail/Lusail-Medium.woff2') format('woff2'),
+         url('/fonts/Lusail/Lusail-Medium.woff') format('woff'),
+         url('/fonts/Lusail/Lusail-Medium.otf') format('opentype');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Lusail';
+    src: url('/fonts/Lusail/Lusail-Bold.woff2') format('woff2'),
+         url('/fonts/Lusail/Lusail-Bold.woff') format('woff'),
+         url('/fonts/Lusail/Lusail-Bold.otf') format('opentype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
 :root {
     --maroon:       #8A1538;
     --maroon-dark:  #511C3C;
@@ -35,14 +73,14 @@ html {
     font-size: 19px;
 }
 body {
-    font-family: 'Tajawal', 'Inter', sans-serif;
+    font-family: 'Lusail', 'Tajawal', 'Inter', sans-serif;
     background: var(--bg);
     color: var(--text-dark);
     direction: rtl;
     font-size: 19px;
     margin: 0;
 }
-body.lang-en { direction: ltr; font-family: 'Inter', 'Tajawal', sans-serif; }
+body.lang-en { direction: ltr; font-family: 'Lusail', 'Inter', 'Tajawal', sans-serif; }
 
 .sidebar {
     width: var(--sidebar-w);
@@ -294,7 +332,7 @@ body.lang-en .sys-table td.col-text { text-align: left; }
     max-width: 380px;
     font-size: 0.82rem;
     line-height: 1.35;
-    white-space: normal;
+    white-space: pre-line;
     word-break: break-word;
 }
 .records-table thead th {
@@ -369,7 +407,7 @@ input[type="number"] { text-align: right; }
 
 /* ── Login page ── */
 .login-page {
-    font-family: 'Tajawal', 'Inter', sans-serif;
+    font-family: 'Lusail', 'Tajawal', 'Inter', sans-serif;
     background: #8A1538;
     min-height: 100vh;
     display: flex;

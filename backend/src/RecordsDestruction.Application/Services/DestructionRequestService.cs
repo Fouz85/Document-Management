@@ -11,7 +11,7 @@ public class DestructionRequestService
     private readonly IApplicationDbContext _db;
     public DestructionRequestService(IApplicationDbContext db) => _db = db;
 
-    /// <summary>Next sequential number for the current year, formatted "yyyy\NNN" (e.g. 2026\001).</summary>
+    /// <summary>Next sequential number for the current year, formatted "yyyy\NN" (e.g. 2026\03).</summary>
     public async Task<string> GetNextDestructionNoAsync()
     {
         var year = DateTime.UtcNow.Year;
@@ -25,7 +25,7 @@ public class DestructionRequestService
         foreach (var no in numbers)
             if (int.TryParse(no.Substring(prefix.Length), out var n) && n > max) max = n;
 
-        return $"{prefix}{(max + 1):D3}";
+        return $"{prefix}{(max + 1):D2}";
     }
 
     public async Task<int> CreateAsync(SaveDestructionRequestDto dto, string userId)
@@ -55,6 +55,11 @@ public class DestructionRequestService
         if (!isAdmin && entity.Status != RequestStatus.Draft && entity.Status != RequestStatus.Rejected)
             return false;
 
+        // The user is addressing whatever the rejection note pointed out — it no longer applies
+        // once they've edited the request, so don't carry it into the next review round.
+        if (!isAdmin && entity.Status == RequestStatus.Rejected)
+            entity.AdminNotes = null;
+
         // Soft-delete replaced record lines instead of removing them.
         foreach (var old in entity.Records.Where(r => !r.IsDeleted))
         {
@@ -74,6 +79,8 @@ public class DestructionRequestService
     {
         var q = _db.DestructionRequests.AsNoTracking().AsQueryable();
         if (userId is not null) q = q.Where(r => r.SubmittedByUserId == userId);
+        // Drafts are private, unsubmitted work — never show another user's draft to an admin.
+        else q = q.Where(r => r.Status != RequestStatus.Draft);
         if (!string.IsNullOrWhiteSpace(status)) q = q.Where(r => r.Status == status);
         if (!string.IsNullOrWhiteSpace(search))
             q = q.Where(r => (r.DestructionNo ?? "").Contains(search)
@@ -91,7 +98,8 @@ public class DestructionRequestService
                 SubmittedAt = r.SubmittedAt,
                 RecordsCount = r.Records.Count(x => !x.IsDeleted),
                 AdminNotes = r.AdminNotes,
-                SubmittedByUserId = r.SubmittedByUserId
+                SubmittedByUserId = r.SubmittedByUserId,
+                IsDestroyed = r.IsDestroyed
             }).ToListAsync();
     }
 
@@ -110,6 +118,9 @@ public class DestructionRequestService
             AdminNotes = r.AdminNotes,
             SubmittedAt = r.SubmittedAt,
             SubmittedByUserId = r.SubmittedByUserId,
+            IsDestroyed = r.IsDestroyed,
+            DestroyedAt = r.DestroyedAt,
+            DestroyedByName = r.DestroyedByName,
             ConcernedParty = r.ConcernedParty,
             DestructionNo = r.DestructionNo ?? string.Empty,
             Department = r.Department,
@@ -139,10 +150,28 @@ public class DestructionRequestService
         var r = await _db.DestructionRequests.FirstOrDefaultAsync(x => x.Id == id);
         if (r is null) return false;
         r.Status = status;
-        r.AdminNotes = notes;
+        // A note only makes sense as "here's what to fix" — once approved there's nothing left
+        // to revise, so it shouldn't linger into an approved request's history.
+        r.AdminNotes = status == RequestStatus.Approved ? null : notes;
         r.LastModifiedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    /// <summary>Marks (or un-marks) that the physical destruction has actually taken place — only
+    /// meaningful for an Approved request. Returns null if the request doesn't exist or isn't
+    /// Approved; otherwise the new IsDestroyed value.</summary>
+    public async Task<bool?> ToggleDestroyedAsync(int id, string adminName)
+    {
+        var r = await _db.DestructionRequests.FirstOrDefaultAsync(x => x.Id == id);
+        if (r is null || r.Status != RequestStatus.Approved) return null;
+
+        r.IsDestroyed = !r.IsDestroyed;
+        r.DestroyedAt = r.IsDestroyed ? DateTime.UtcNow : null;
+        r.DestroyedByName = r.IsDestroyed ? adminName : null;
+        r.LastModifiedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return r.IsDestroyed;
     }
 
     /// <summary>Soft delete only — physical deletion is forbidden (audit & PDPPL).</summary>
@@ -162,18 +191,21 @@ public class DestructionRequestService
         var q = _db.DestructionRequests.AsNoTracking();
         return new DashboardDto
         {
-            TotalSubmissions = await q.CountAsync(),
+            // Drafts are private, unsubmitted work — an admin's total shouldn't hint that one exists.
+            TotalSubmissions = await q.CountAsync(r => r.Status != RequestStatus.Draft),
             SubmittedCount = await q.CountAsync(r => r.Status == RequestStatus.Submitted),
             ApprovedCount = await q.CountAsync(r => r.Status == RequestStatus.Approved),
             RejectedCount = await q.CountAsync(r => r.Status == RequestStatus.Rejected),
             DraftCount = await q.CountAsync(r => r.Status == RequestStatus.Draft),
-            RecentSubmissions = await q.OrderByDescending(r => r.SubmittedAt).Take(5)
+            // Drafts are private, unsubmitted work — never show another user's draft to an admin.
+            RecentSubmissions = await q.Where(r => r.Status != RequestStatus.Draft).OrderByDescending(r => r.SubmittedAt).Take(5)
                 .Select(r => new DestructionRequestListItemDto
                 {
                     Id = r.Id, DestructionNo = r.DestructionNo, Department = r.Department,
                     ResponsibleOfficer = r.ResponsibleOfficer, Status = r.Status, SubmittedAt = r.SubmittedAt,
                     RecordsCount = r.Records.Count(x => !x.IsDeleted),
-                    SubmittedByUserId = r.SubmittedByUserId
+                    SubmittedByUserId = r.SubmittedByUserId,
+                    IsDestroyed = r.IsDestroyed
                 }).ToListAsync()
         };
     }

@@ -44,24 +44,57 @@ import { RequestDetails, SignatureBlockDto } from '../../core/models';
         </div>
       </div>
 
-      @if (r.adminNotes && !auth.isAdmin()) {
-        <div class="alert alert-warning"><i class="bi bi-chat-left-text me-2"></i><strong>{{ i18n.t('request.adminNotes') }}:</strong> {{ r.adminNotes }}</div>
+      @if (r.adminNotes) {
+        <div class="alert alert-warning"><i class="bi bi-chat-left-text me-2"></i>{{ r.adminNotes }}</div>
       }
 
-      @if (auth.isAdmin() && r.status === 'Submitted') {
+      @if (auth.isAdmin() && r.status !== 'Draft') {
         <div class="card mb-3 border-warning">
           <div class="card-body p-4">
             <div class="section-header"><i class="bi bi-check2-square"></i>{{ i18n.t('admin.reviewAction') }}</div>
             <textarea class="form-control mb-3" rows="2" [(ngModel)]="notesDraft"
                       [placeholder]="i18n.t('admin.notesPlaceholder')"></textarea>
             <div class="d-flex gap-2">
-              <button class="btn btn-success" (click)="decide('Approved')" [disabled]="saving()">
+              <button class="btn btn-success" (click)="decide('Approved')" [disabled]="saving() || r.status === 'Approved'">
                 <i class="bi bi-check-lg me-1"></i>{{ i18n.t('admin.approve') }}
               </button>
-              <button class="btn btn-danger" (click)="decide('Rejected')" [disabled]="saving()">
+              <button class="btn btn-danger" (click)="decide('Rejected')" [disabled]="saving() || r.status === 'Rejected'">
                 <i class="bi bi-x-lg me-1"></i>{{ i18n.t('admin.reject') }}
               </button>
             </div>
+          </div>
+        </div>
+      }
+
+      @if (auth.isAdmin() && r.status === 'Approved') {
+        <div class="card mb-3" [class.border-success]="r.isDestroyed" [class.border-warning]="!r.isDestroyed">
+          <div class="card-body p-4">
+            @if (r.isDestroyed) {
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div class="d-flex align-items-center gap-3">
+                  <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                       style="width:40px;height:40px;background:var(--palm);color:#fff;">
+                    <i class="bi bi-check-lg"></i>
+                  </div>
+                  <div>
+                    <div class="fw-bold" style="color:var(--maroon-dark);">{{ i18n.t('admin.destroyedTitle') }}</div>
+                    <div class="text-muted small">{{ i18n.t('admin.destroyedBy') }} {{ r.destroyedByName }} — {{ r.destroyedAt | date:'dd-MM-yyyy' }}</div>
+                  </div>
+                </div>
+                <button class="btn btn-outline-secondary btn-sm" (click)="toggleDestroyed()" [disabled]="togglingDestroyed()">
+                  {{ i18n.t('admin.undoDestroyed') }}
+                </button>
+              </div>
+              <div class="alert alert-info small mt-3 mb-0 py-2">
+                <i class="bi bi-info-circle me-1"></i>{{ i18n.t('admin.destroyedExcelNote') }}
+              </div>
+            } @else {
+              <div class="section-header"><i class="bi bi-trash"></i>{{ i18n.t('admin.destroyStatus') }}</div>
+              <p class="text-muted small mb-3">{{ i18n.t('admin.notDestroyedYet') }}</p>
+              <button class="btn btn-primary" (click)="toggleDestroyed()" [disabled]="togglingDestroyed()">
+                <i class="bi bi-check-lg me-1"></i>{{ i18n.t('admin.markDestroyed') }}
+              </button>
+            }
           </div>
         </div>
       }
@@ -159,6 +192,7 @@ export class RequestDetailsComponent {
   readonly saving = signal(false);
   readonly downloadingPdf = signal(false);
   readonly downloadingDocx = signal(false);
+  readonly togglingDestroyed = signal(false);
   notesDraft = '';
   private readonly id: number;
 
@@ -221,6 +255,17 @@ export class RequestDetailsComponent {
     }
   }
 
+  async toggleDestroyed(): Promise<void> {
+    if (this.togglingDestroyed()) return;
+    this.togglingDestroyed.set(true);
+    try {
+      await firstValueFrom(this.api.toggleDestroyed(this.id));
+      this.load();
+    } finally {
+      this.togglingDestroyed.set(false);
+    }
+  }
+
   blocks(): { key: string; value: SignatureBlockDto | null | undefined }[] {
     const r = this.details();
     return [
@@ -232,7 +277,7 @@ export class RequestDetailsComponent {
   }
 
   year(d?: string | null): string {
-    return d ? String(new Date(d).getFullYear()) : '';
+    return d ? String(new Date(d).getFullYear()) : '/';
   }
 
   private readonly typeKeys: Record<string, string> = {

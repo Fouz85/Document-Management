@@ -43,9 +43,6 @@ import { I18nService } from '../core/i18n.service';
                   (click)="i18n.setLang(i18n.isEn() ? 'ar' : 'en')">
             {{ i18n.isEn() ? 'عربي' : 'En' }}
           </button>
-          <a class="gov-icon-btn" routerLink="/change-password" [title]="i18n.t('nav.changePassword')">
-            <i class="bi bi-gear"></i>
-          </a>
           <button type="button" class="gov-icon-btn" [title]="i18n.t('nav.logout')" (click)="auth.logout()">
             <i class="bi bi-box-arrow-right"></i>
           </button>

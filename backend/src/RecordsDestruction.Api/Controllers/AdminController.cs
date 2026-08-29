@@ -33,37 +33,25 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("dashboard")]
-    public async Task<ActionResult<DashboardDto>> Dashboard()
-    {
-        var dashboard = await _requests.GetDashboardAsync();
-        await ResolveCurrentOfficerNames(dashboard.RecentSubmissions);
-        return dashboard;
-    }
+    public async Task<ActionResult<DashboardDto>> Dashboard() => await _requests.GetDashboardAsync();
 
     [HttpGet("submissions")]
     public async Task<ActionResult<List<DestructionRequestListItemDto>>> Submissions(string? search, string? status)
-    {
-        var items = await _requests.ListAsync(null, search, status);
-        await ResolveCurrentOfficerNames(items);
-        return items;
-    }
-
-    /// <summary>"الموظف المسؤول" is captured on the request at submission time, so if an admin later
-    /// corrects a user's name via Users Management, older requests still hold the old snapshot.
-    /// Overlay the submitter's current account name here so list views always show up-to-date names.</summary>
-    private async Task ResolveCurrentOfficerNames(IEnumerable<DestructionRequestListItemDto> items)
-    {
-        var ids = items.Select(i => i.SubmittedByUserId).Where(id => id is not null).Distinct().ToList();
-        if (ids.Count == 0) return;
-        var names = await _userManager.Users.Where(u => ids.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.FullName);
-        foreach (var item in items)
-            if (item.SubmittedByUserId is not null && names.TryGetValue(item.SubmittedByUserId, out var name))
-                item.ResponsibleOfficer = name;
-    }
+        => await _requests.ListAsync(null, search, status);
 
     [HttpPut("submissions/{id:int}/status")]
     public async Task<IActionResult> UpdateStatus(int id, UpdateStatusDto dto)
         => await _requests.UpdateStatusAsync(id, dto.Status, dto.Notes) ? NoContent() : NotFound();
+
+    /// <summary>Toggles whether the physical destruction has actually taken place — only valid for
+    /// an Approved request. Once marked, it drops out of the "كشف الإتلاف" Excel export.</summary>
+    [HttpPost("submissions/{id:int}/toggle-destroyed")]
+    public async Task<IActionResult> ToggleDestroyed(int id)
+    {
+        var adminName = User.FindFirstValue("fullName") ?? User.FindFirstValue(ClaimTypes.Email) ?? "System";
+        var result = await _requests.ToggleDestroyedAsync(id, adminName);
+        return result is null ? NotFound() : Ok(new { isDestroyed = result.Value });
+    }
 
     /// <summary>Soft delete — the row stays in the database (audit & PDPPL).</summary>
     [HttpDelete("submissions/{id:int}")]
@@ -88,9 +76,13 @@ public class AdminController : ControllerBase
     [HttpGet("export/excel")]
     public async Task<IActionResult> ExportExcel()
     {
+        // Only approved requests represent an actual, decided destruction — drafts, pending, and
+        // rejected requests have no business appearing in the official summary. Already-destroyed
+        // approved requests have nothing left to submit for destruction — leave those out too.
         var requests = await _db.DestructionRequests
             .Include(r => r.Records.Where(x => !x.IsDeleted))
             .AsNoTracking()
+            .Where(r => r.Status == RequestStatus.Approved && !r.IsDestroyed)
             .OrderByDescending(r => r.SubmittedAt)
             .ToListAsync();
         var bytes = _excel.ExportDestructionSummary(requests);
@@ -108,23 +100,9 @@ public class AdminController : ControllerBase
             list.Add(new UserDto
             {
                 Id = u.Id, FullName = u.FullName, Email = u.Email ?? "", Department = u.Department,
-                IsActive = u.IsActive, RegistrationStatus = u.RegistrationStatus, Roles = await _userManager.GetRolesAsync(u)
+                IsActive = u.IsActive, Roles = await _userManager.GetRolesAsync(u)
             });
         return list;
-    }
-
-    [HttpPost("users")]
-    public async Task<IActionResult> CreateUser(RegisterUserDto dto)
-    {
-        var user = new ApplicationUser
-        {
-            UserName = dto.Email, Email = dto.Email,
-            FullName = dto.FullName, Department = dto.Department, IsActive = true
-        };
-        var result = await _userManager.CreateAsync(user, dto.Password);
-        if (!result.Succeeded) return BadRequest(new { errors = result.Errors.Select(e => e.Code) });
-        await _userManager.AddToRoleAsync(user, dto.Role == "Admin" ? "Admin" : "User");
-        return Ok(new { user.Id });
     }
 
     [HttpPut("users/{id}")]
@@ -143,12 +121,6 @@ public class AdminController : ControllerBase
         await _userManager.RemoveFromRolesAsync(user, roles);
         await _userManager.AddToRoleAsync(user, dto.Role == "Admin" ? "Admin" : "User");
 
-        if (!string.IsNullOrWhiteSpace(dto.NewPassword))
-        {
-            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-            var reset = await _userManager.ResetPasswordAsync(user, token, dto.NewPassword);
-            if (!reset.Succeeded) return BadRequest(new { errors = reset.Errors.Select(e => e.Code) });
-        }
         return NoContent();
     }
 
@@ -173,28 +145,6 @@ public class AdminController : ControllerBase
         user.IsActive = !user.IsActive;
         await _userManager.UpdateAsync(user);
         return Ok(new { user.IsActive });
-    }
-
-    [HttpPost("users/{id}/approve")]
-    public async Task<IActionResult> ApproveRegistration(string id)
-    {
-        var user = await _userManager.FindByIdAsync(id);
-        if (user is null) return NotFound();
-        user.RegistrationStatus = RegistrationStatus.Approved;
-        user.IsActive = true;
-        await _userManager.UpdateAsync(user);
-        return NoContent();
-    }
-
-    [HttpPost("users/{id}/reject")]
-    public async Task<IActionResult> RejectRegistration(string id)
-    {
-        var user = await _userManager.FindByIdAsync(id);
-        if (user is null) return NotFound();
-        user.RegistrationStatus = RegistrationStatus.Rejected;
-        user.IsActive = false;
-        await _userManager.UpdateAsync(user);
-        return NoContent();
     }
 
 }

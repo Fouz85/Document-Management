@@ -43,6 +43,14 @@ public class DestructionRequest : BaseEntity
     public string Status { get; set; } = RequestStatus.Submitted;
     public string? AdminNotes { get; set; }
 
+    /// <summary>Tracks the physical destruction itself, separate from the approval workflow —
+    /// an Approved request may still be sitting physically undestroyed for a while. Once marked,
+    /// it's excluded from the "كشف الإتلاف" Excel export. DestroyedByName is a snapshot (the admin's
+    /// name at the time), not a live account reference — same reasoning as ResponsibleOfficer.</summary>
+    public bool IsDestroyed { get; set; }
+    public DateTime? DestroyedAt { get; set; }
+    public string? DestroyedByName { get; set; }
+
     public ICollection<DestructionRecord> Records { get; set; } = new List<DestructionRecord>();
     public ICollection<Approval> Approvals { get; set; } = new List<Approval>();
 }

@@ -12,7 +12,11 @@ public class DepartmentService
     /// <summary>Full hierarchical tree: Department → SubDepartment → nested children.</summary>
     public async Task<List<DepartmentDto>> GetTreeAsync()
     {
-        var departments = await _db.Departments.AsNoTracking().OrderBy(d => d.Id).ToListAsync();
+        // "المدارس" (Schools) is by far the most common submitter — always show it first in the dropdown.
+        var departments = await _db.Departments.AsNoTracking()
+            .OrderByDescending(d => d.Name == "المدارس")
+            .ThenBy(d => d.Id)
+            .ToListAsync();
         var subs = await _db.SubDepartments.AsNoTracking().OrderBy(s => s.Id).ToListAsync();
 
         var byId = subs.ToDictionary(s => s.Id, s => new UnitDto { Id = s.Id, Name = s.Name, ParentId = s.ParentId });

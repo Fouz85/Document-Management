@@ -21,6 +21,31 @@ export class AuthService {
     const result = await firstValueFrom(
       this.http.post<AuthResult>(`${environment.apiUrl}/auth/login`, { email, password })
     );
+    this.setSession(result);
+  }
+
+  /** Self-service sign-up — no admin approval. FullName/Department come right after via completeProfile(). */
+  async register(email: string, password: string): Promise<void> {
+    const result = await firstValueFrom(
+      this.http.post<AuthResult>(`${environment.apiUrl}/auth/register`, { email, password })
+    );
+    this.setSession(result);
+  }
+
+  /** The logged-in user filling in their own name/department for the first time. */
+  readonly profileIncomplete = computed(() => {
+    const s = this.session();
+    return s !== null && (!s.fullName || !s.department);
+  });
+
+  async completeProfile(fullName: string, department: string): Promise<void> {
+    const result = await firstValueFrom(
+      this.http.put<AuthResult>(`${environment.apiUrl}/auth/profile`, { fullName, department })
+    );
+    this.setSession(result);
+  }
+
+  private setSession(result: AuthResult): void {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(result));
     this.session.set(result);
   }

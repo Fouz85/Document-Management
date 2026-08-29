@@ -55,6 +55,7 @@ export interface RequestListItem {
   submittedAt: string;
   recordsCount: number;
   adminNotes?: string | null;
+  isDestroyed: boolean;
 }
 
 export interface RequestDetails extends SaveDestructionRequestDto {
@@ -62,6 +63,9 @@ export interface RequestDetails extends SaveDestructionRequestDto {
   status: string;
   adminNotes?: string | null;
   submittedAt: string;
+  isDestroyed: boolean;
+  destroyedAt?: string | null;
+  destroyedByName?: string | null;
 }
 
 export interface Dashboard {
@@ -92,6 +96,5 @@ export interface UserDto {
   email: string;
   department: string;
   isActive: boolean;
-  registrationStatus: string;
   roles: string[];
 }

@@ -10,9 +10,15 @@ import { I18nService } from '../core/i18n.service';
     <canvas #canvas class="signature-canvas" height="120"
       (pointerdown)="start($event)" (pointermove)="move($event)"
       (pointerup)="end()" (pointerleave)="end()"></canvas>
-    <button type="button" class="btn btn-sm btn-outline-secondary mt-1" (click)="clear()">
-      {{ i18n.t('common.clear') }}
-    </button>
+    <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
+      <button type="button" class="btn btn-sm btn-outline-secondary" (click)="clear()">
+        {{ i18n.t('common.clear') }}
+      </button>
+      <label class="btn btn-sm btn-outline-secondary mb-0">
+        {{ i18n.t('request.uploadSignature') }}
+        <input type="file" accept="image/*" hidden (change)="onFileSelected($event)">
+      </label>
+    </div>
   `
 })
 export class SignaturePadComponent implements ControlValueAccessor, AfterViewInit {
@@ -72,6 +78,40 @@ export class SignaturePadComponent implements ControlValueAccessor, AfterViewIni
     canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height);
     this.dirty = false;
     this.onChange(null);
+  }
+
+  onFileSelected(e: Event): void {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        // A phone-camera photo can be several MB — well beyond what a signature/stamp needs, and
+        // with up to 4 of these per request the raw upload can blow past the server's request-size
+        // cap. Re-encoding through a small canvas keeps every upload down to tens of KB regardless
+        // of the original photo's resolution.
+        const dataUrl = this.downscale(img);
+        this.writeValue(dataUrl);
+        this.dirty = true;
+        this.onTouched();
+        this.onChange(dataUrl);
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+    (e.target as HTMLInputElement).value = '';
+  }
+
+  private downscale(img: HTMLImageElement, maxDim = 500): string {
+    const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.round(img.naturalWidth * scale) || 1;
+    const h = Math.round(img.naturalHeight * scale) || 1;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+    return canvas.toDataURL('image/jpeg', 0.8);
   }
 
   private ctx(): CanvasRenderingContext2D { return this.canvasRef().nativeElement.getContext('2d')!; }

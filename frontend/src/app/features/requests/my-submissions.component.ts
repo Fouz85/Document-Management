@@ -7,6 +7,7 @@ import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
 import { RequestListItem } from '../../core/models';
+import { sectionOrDepartment } from '../../core/record-labels';
 
 @Component({
   selector: 'app-my-submissions',
@@ -78,7 +79,7 @@ import { RequestListItem } from '../../core/models';
                   <th>{{ i18n.t('request.destructionNo') }}</th>
                   <th class="col-text">{{ i18n.t('request.department') }}</th>
                   <th style="width:60px;">{{ i18n.t('request.recordsCount') }}</th>
-                  <th style="width:125px;">{{ i18n.t('request.submittedAt') }}</th>
+                  <th style="width:125px;white-space:nowrap;">{{ i18n.t('request.submittedAt') }}</th>
                   <th style="width:110px;">{{ i18n.t('common.status') }}</th>
                   <th style="width:210px;">{{ i18n.t('admin.notes') }}</th>
                   <th style="width:70px;">{{ i18n.t('common.actions') }}</th>
@@ -89,9 +90,9 @@ import { RequestListItem } from '../../core/models';
                   <tr style="cursor:pointer;" (click)="goTo(r.id)">
                     <td class="fw-bold">{{ i + 1 }}</td>
                     <td><span class="text-muted">{{ r.destructionNo ?? '—' }}</span></td>
-                    <td class="col-text">{{ r.department }}</td>
+                    <td class="col-text">{{ sectionOrDepartment(r.department) }}</td>
                     <td><span class="badge bg-secondary">{{ r.recordsCount }}</span></td>
-                    <td>{{ r.submittedAt | date:'dd-MM-yyyy' }}</td>
+                    <td style="white-space:nowrap;">{{ r.submittedAt | date:'dd-MM-yyyy' }}</td>
                     <td><span class="badge-status" [style]="badgeStyle(r.status)">{{ i18n.t('status.' + r.status) }}</span></td>
                     <td (click)="$event.stopPropagation()">
                       @if (r.adminNotes) {
@@ -151,6 +152,7 @@ export class MySubmissionsComponent {
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
   readonly i18n = inject(I18nService);
+  readonly sectionOrDepartment = sectionOrDepartment;
   readonly auth = inject(AuthService);
 
   readonly items = signal<RequestListItem[]>([]);

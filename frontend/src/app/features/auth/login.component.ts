@@ -52,9 +52,9 @@ import { I18nService } from '../../core/i18n.service';
                 <i class="bi bi-box-arrow-in-right me-2"></i>{{ i18n.t('auth.login') }}
               </button>
             </form>
-            <div class="text-center mt-2" style="font-size:0.85rem;">
-              {{ i18n.t('auth.noAccount') }}
-              <a routerLink="/register" style="color:var(--maroon);font-weight:600;">{{ i18n.t('auth.registerLink') }}</a>
+
+            <div class="text-center mt-2">
+              <a routerLink="/register" class="small">{{ i18n.t('auth.noAccount') }}</a>
             </div>
           </div>
         </div>
@@ -81,7 +81,11 @@ export class LoginComponent {
     this.error.set(null);
     try {
       await this.auth.login(this.email, this.password);
-      this.router.navigate([this.auth.isAdmin() ? '/admin/dashboard' : '/requests/new']);
+      if (this.auth.profileIncomplete()) {
+        this.router.navigate(['/complete-profile']);
+      } else {
+        this.router.navigate([this.auth.isAdmin() ? '/admin/dashboard' : '/requests/new']);
+      }
     } catch (err: unknown) {
       const httpErr = err as { error?: { error?: string } };
       this.error.set(httpErr?.error?.error ?? 'auth.invalidCredentials');

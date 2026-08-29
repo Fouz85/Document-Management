@@ -1,19 +1,15 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
-import { ApiService } from '../../core/api.service';
+import { AuthService } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
-import { DepartmentNode, UnitNode } from '../../core/models';
-
-const SCHOOL_DEPT_NAME = 'المدارس';
 
 @Component({
   selector: 'app-register',
   imports: [FormsModule, RouterLink],
   template: `
     <div class="login-page">
-      <div class="login-wrapper" style="max-width:560px;">
+      <div class="login-wrapper">
         <div class="lang-switcher">
           <button class="lang-btn" [class.active]="!i18n.isEn()" (click)="i18n.setLang('ar')">العربية</button>
           <button class="lang-btn" [class.active]="i18n.isEn()" (click)="i18n.setLang('en')">English</button>
@@ -26,62 +22,33 @@ const SCHOOL_DEPT_NAME = 'المدارس';
           </div>
 
           <div class="login-body">
-            @if (success()) {
-              <div class="alert alert-success mb-3 py-2 small" style="border-radius:10px;">
-                {{ i18n.t('auth.registerSuccess') }}
-              </div>
-              <a routerLink="/login" class="btn btn-login w-100 text-white">{{ i18n.t('auth.backToLogin') }}</a>
-            } @else {
-              <h5 class="mb-3 text-center" style="color:var(--maroon);">{{ i18n.t('auth.registerTitle') }}</h5>
-
+            <h6 class="mb-3 text-center">{{ i18n.t('auth.registerTitle') }}</h6>
+            <form (ngSubmit)="submit()">
               @if (error()) {
-                <div class="alert alert-danger mb-3 py-2 small" style="border-radius:10px;">{{ i18n.t(error()!) }}</div>
+                <div class="alert alert-danger mb-3 py-2 small" style="border-radius:10px;">
+                  {{ i18n.t(error()!) }}
+                </div>
               }
 
-              <div class="mb-3">
-                <label class="form-label">{{ i18n.t('admin.fullName') }}</label>
-                <input class="form-control" [(ngModel)]="fullName" name="fullName">
-              </div>
-
-              <div class="mb-3">
-                <label class="form-label">{{ i18n.t('admin.deptSection') }}</label>
-                <select class="form-select mb-2" [value]="selectedDeptId()" (change)="pickDept($event)">
-                  <option value="">-- {{ i18n.t('admin.selectMainDept') }} --</option>
-                  @for (d of departments(); track d.id) { <option [value]="d.id">{{ d.name }}</option> }
-                </select>
-                @if (isSchoolDept()) {
-                  <input class="form-control" [value]="schoolName()" (input)="pickSchoolName($event)"
-                         [placeholder]="i18n.t('request.schoolNamePlaceholder')">
-                } @else {
-                  <select class="form-select mb-2" [value]="selectedUnitId()" (change)="pickUnit($event)"
-                          [disabled]="!selectedDeptId()">
-                    <option value="">-- {{ i18n.t('admin.selectUnit') }} --</option>
-                    @for (u of units(); track u.id) { <option [value]="u.id">{{ u.name }}</option> }
-                  </select>
-                  <select class="form-select" [value]="selectedSectionId()" (change)="pickSection($event)"
-                          [disabled]="sections().length === 0">
-                    <option value="">-- {{ i18n.t('request.selectSection') }} --</option>
-                    @for (s of sections(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
-                  </select>
-                }
-                @if (department()) {
-                  <div class="text-muted small mt-1">✓ {{ department() }}</div>
-                }
-              </div>
-
-              <div class="mb-3">
-                <label class="form-label">{{ i18n.t('auth.email') }}</label>
+              <div class="mb-2">
+                <label class="form-label" for="email">{{ i18n.t('auth.email') }}</label>
                 <div class="input-icon">
                   <i class="bi bi-envelope"></i>
-                  <input type="email" class="form-control" [(ngModel)]="email" name="email" dir="ltr">
+                  <input id="email" name="email" type="email" class="form-control" [class.is-invalid]="emailInvalid()"
+                         placeholder="name@education.qa" autocomplete="email" dir="ltr" [(ngModel)]="email" required>
+                </div>
+                <div class="form-text" [class.text-muted]="!emailInvalid()" [class.text-danger]="emailInvalid()" style="font-size:0.75rem;">
+                  {{ i18n.t('auth.emailDomainNotAllowed') }}
                 </div>
               </div>
 
-              <div class="mb-3">
-                <label class="form-label">{{ i18n.t('auth.password') }}</label>
+              <div class="mb-2">
+                <label class="form-label" for="password">{{ i18n.t('auth.password') }}</label>
                 <div class="input-icon">
                   <i class="bi bi-lock"></i>
-                  <input type="password" class="form-control" [(ngModel)]="password" name="password" autocomplete="new-password">
+                  <input id="password" name="password" type="password" class="form-control"
+                         [placeholder]="i18n.t('admin.passwordPlaceholder')" autocomplete="new-password"
+                         [(ngModel)]="password" required>
                 </div>
                 @if (password) {
                   <div class="mt-2" style="font-size:0.78rem;">
@@ -92,6 +59,10 @@ const SCHOOL_DEPT_NAME = 'المدارس';
                     <div [class]="hasUpper(password) ? 'text-success' : 'text-danger'">
                       <i class="bi" [class.bi-check-circle]="hasUpper(password)" [class.bi-x-circle]="!hasUpper(password)"></i>
                       {{ i18n.t('admin.chkUpper') }}
+                    </div>
+                    <div [class]="hasLower(password) ? 'text-success' : 'text-danger'">
+                      <i class="bi" [class.bi-check-circle]="hasLower(password)" [class.bi-x-circle]="!hasLower(password)"></i>
+                      {{ i18n.t('admin.chkLower') }}
                     </div>
                     <div [class]="hasNumber(password) ? 'text-success' : 'text-danger'">
                       <i class="bi" [class.bi-check-circle]="hasNumber(password)" [class.bi-x-circle]="!hasNumber(password)"></i>
@@ -105,19 +76,23 @@ const SCHOOL_DEPT_NAME = 'المدارس';
                 }
               </div>
 
-              <div class="mb-4">
-                <label class="form-label">{{ i18n.t('auth.confirmPassword') }}</label>
+              <div class="mb-2">
+                <label class="form-label" for="confirmPassword">{{ i18n.t('auth.confirmPassword') }}</label>
                 <div class="input-icon">
                   <i class="bi bi-lock"></i>
-                  <input type="password" class="form-control" [(ngModel)]="confirmPassword" name="confirmPassword" autocomplete="new-password">
+                  <input id="confirmPassword" name="confirmPassword" type="password" class="form-control"
+                         autocomplete="new-password" [(ngModel)]="confirmPassword" required>
                 </div>
               </div>
 
-              <button type="button" class="btn btn-login w-100 text-white mb-2" [disabled]="busy()" (click)="submit()">
-                <i class="bi bi-person-plus me-2"></i>{{ i18n.t('auth.registerTitle') }}
+              <button type="submit" class="btn btn-login w-100 text-white mb-2 mt-2" [disabled]="busy()">
+                <i class="bi bi-person-plus me-2"></i>{{ i18n.t('auth.registerSubmit') }}
               </button>
-              <a routerLink="/login" class="btn btn-outline-secondary w-100">{{ i18n.t('auth.backToLogin') }}</a>
-            }
+            </form>
+
+            <div class="text-center mt-2">
+              <a routerLink="/login" class="small">{{ i18n.t('auth.haveAccount') }}</a>
+            </div>
           </div>
         </div>
 
@@ -129,106 +104,44 @@ const SCHOOL_DEPT_NAME = 'المدارس';
   `
 })
 export class RegisterComponent {
-  private readonly api = inject(ApiService);
+  private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   readonly i18n = inject(I18nService);
 
-  readonly departments = signal<DepartmentNode[]>([]);
-  readonly selectedDeptId = signal<number | ''>('');
-  readonly selectedUnitId = signal<number | ''>('');
-  readonly selectedSectionId = signal<number | ''>('');
-  readonly schoolName = signal('');
-  readonly department = signal('');
-
-  readonly busy = signal(false);
-  readonly error = signal<string | null>(null);
-  readonly success = signal(false);
-
-  fullName = '';
   email = '';
   password = '';
   confirmPassword = '';
+  readonly busy = signal(false);
+  readonly error = signal<string | null>(null);
 
-  constructor() {
-    this.api.departmentsTree().subscribe(tree => this.departments.set(tree));
+  private isAllowedEmailDomain(email: string): boolean {
+    return /@(education\.qa|edu\.gov\.qa)$/i.test(email.trim());
   }
-
-  units(): UnitNode[] {
-    const id = this.selectedDeptId();
-    if (!id) return [];
-    return this.departments().find(d => d.id === id)?.units ?? [];
+  emailInvalid(): boolean {
+    return this.email.trim().length > 0 && !this.isAllowedEmailDomain(this.email);
   }
-  sections(): UnitNode[] {
-    const id = this.selectedUnitId();
-    if (!id) return [];
-    return this.units().find(u => u.id === id)?.children ?? [];
-  }
-  isSchoolDept(): boolean {
-    return this.departments().find(d => d.id === this.selectedDeptId())?.name === SCHOOL_DEPT_NAME;
-  }
-
-  pickDept(e: Event): void {
-    const v = (e.target as HTMLSelectElement).value;
-    this.selectedDeptId.set(v ? +v : '');
-    this.selectedUnitId.set('');
-    this.selectedSectionId.set('');
-    this.schoolName.set('');
-    this.syncDept();
-  }
-  pickUnit(e: Event): void {
-    const v = (e.target as HTMLSelectElement).value;
-    this.selectedUnitId.set(v ? +v : '');
-    this.selectedSectionId.set('');
-    this.schoolName.set('');
-    this.syncDept();
-  }
-  pickSection(e: Event): void {
-    const v = (e.target as HTMLSelectElement).value;
-    this.selectedSectionId.set(v ? +v : '');
-    this.syncDept();
-  }
-  pickSchoolName(e: Event): void {
-    this.schoolName.set((e.target as HTMLInputElement).value);
-    this.syncDept();
-  }
-  private syncDept(): void {
-    const dept = this.departments().find(d => d.id === this.selectedDeptId());
-    if (this.isSchoolDept()) {
-      this.department.set([dept?.name, this.schoolName()].filter(Boolean).join(' - '));
-      return;
-    }
-    const unit = this.units().find(u => u.id === this.selectedUnitId());
-    const section = this.sections().find(s => s.id === this.selectedSectionId())?.name;
-    this.department.set([dept?.name, unit?.name, section].filter(Boolean).join(' - '));
-  }
-
   hasUpper(s: string): boolean { return /[A-Z]/.test(s); }
+  hasLower(s: string): boolean { return /[a-z]/.test(s); }
   hasNumber(s: string): boolean { return /[0-9]/.test(s); }
   hasSymbol(s: string): boolean { return /[^A-Za-z0-9]/.test(s); }
 
   async submit(): Promise<void> {
     this.error.set(null);
-    if (!this.fullName.trim() || !this.department() || !this.email.trim() || !this.password) {
-      this.error.set('common.fillRequired');
+    if (!this.isAllowedEmailDomain(this.email)) {
+      this.error.set('auth.emailDomainNotAllowed');
       return;
     }
     if (this.password !== this.confirmPassword) {
       this.error.set('auth.passwordMismatch');
       return;
     }
-    if (this.password.length < 10 || !this.hasUpper(this.password) || !this.hasNumber(this.password) || !this.hasSymbol(this.password)) {
-      this.error.set('auth.weakPassword');
-      return;
-    }
     this.busy.set(true);
     try {
-      await firstValueFrom(this.api.register({
-        fullName: this.fullName, email: this.email, department: this.department(), password: this.password
-      }));
-      this.success.set(true);
+      await this.auth.register(this.email, this.password);
+      this.router.navigate(['/complete-profile']);
     } catch (err: unknown) {
-      const httpErr = err as { error?: { error?: string; errors?: string[] } };
-      this.error.set(httpErr?.error?.error ?? (httpErr?.error?.errors ? 'auth.weakPassword' : 'common.error'));
+      const httpErr = err as { error?: { errors?: string[] } };
+      this.error.set(httpErr?.error?.errors?.length ? 'auth.registerFailed' : 'common.error');
     } finally {
       this.busy.set(false);
     }

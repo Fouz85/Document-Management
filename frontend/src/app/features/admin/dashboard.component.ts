@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { I18nService } from '../../core/i18n.service';
 import { Dashboard } from '../../core/models';
+import { sectionOrDepartment } from '../../core/record-labels';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -86,8 +87,9 @@ import { Dashboard } from '../../core/models';
                   <th class="col-text">{{ i18n.t('request.department') }}</th>
                   <th>{{ i18n.t('request.responsibleOfficer') }}</th>
                   <th style="width:60px;">{{ i18n.t('request.recordsCount') }}</th>
-                  <th style="width:125px;">{{ i18n.t('request.submittedAt') }}</th>
+                  <th style="width:125px;white-space:nowrap;">{{ i18n.t('request.submittedAt') }}</th>
                   <th style="width:110px;">{{ i18n.t('common.status') }}</th>
+                  <th style="width:120px;">{{ i18n.t('admin.destroyedColumn') }}</th>
                   <th style="width:90px;">{{ i18n.t('common.actions') }}</th>
                 </tr>
               </thead>
@@ -96,11 +98,24 @@ import { Dashboard } from '../../core/models';
                   <tr style="cursor:pointer;" (click)="goTo(r.id)">
                     <td class="fw-bold">{{ i + 1 }}</td>
                     <td>{{ r.destructionNo ?? '—' }}</td>
-                    <td class="col-text">{{ r.department }}</td>
+                    <td class="col-text">{{ sectionOrDepartment(r.department) }}</td>
                     <td>{{ r.responsibleOfficer }}</td>
                     <td><span class="badge bg-secondary">{{ r.recordsCount }}</span></td>
-                    <td>{{ r.submittedAt | date:'dd-MM-yyyy' }}</td>
+                    <td style="white-space:nowrap;">{{ r.submittedAt | date:'dd-MM-yyyy' }}</td>
                     <td><span class="badge-status" [style]="badgeStyle(r.status)">{{ i18n.t('status.' + r.status) }}</span></td>
+                    <td>
+                      @if (r.status !== 'Approved') {
+                        <span class="text-muted">—</span>
+                      } @else if (r.isDestroyed) {
+                        <span class="badge" style="background:#E6F5F2;color:#0a5c4a;border:1px solid rgba(18,155,130,0.35);font-weight:600;">
+                          <i class="bi bi-check-lg me-1"></i>{{ i18n.t('admin.destroyedYes') }}
+                        </span>
+                      } @else {
+                        <span class="badge" style="background:#EFEAE0;color:var(--dune);border:1px solid #E1D8C4;font-weight:600;">
+                          {{ i18n.t('admin.destroyedNo') }}
+                        </span>
+                      }
+                    </td>
                     <td class="actions-cell" (click)="$event.stopPropagation()">
                       <div class="d-flex gap-1 flex-nowrap justify-content-center">
                         <a [routerLink]="['/requests', r.id]" class="btn btn-sm btn-outline-primary py-0 px-2">
@@ -110,10 +125,10 @@ import { Dashboard } from '../../core/models';
                           <i class="bi bi-pencil"></i>
                         </a>
                         @if (r.status === 'Approved') {
-                          <button class="btn btn-sm btn-outline-success py-0 px-2" (click)="downloadPdf(r.id)">
+                          <button class="btn btn-sm btn-outline-success py-0 px-2" (click)="downloadPdf(r.id, r.destructionNo)">
                             <i class="bi bi-file-earmark-pdf"></i>
                           </button>
-                          <button class="btn btn-sm btn-outline-primary py-0 px-2" (click)="downloadDocx(r.id)">
+                          <button class="btn btn-sm btn-outline-primary py-0 px-2" (click)="downloadDocx(r.id, r.destructionNo)">
                             <i class="bi bi-file-earmark-word"></i>
                           </button>
                         }
@@ -124,7 +139,7 @@ import { Dashboard } from '../../core/models';
                     </td>
                   </tr>
                 } @empty {
-                  <tr><td colspan="8" class="text-center text-muted py-5">{{ i18n.t('common.noData') }}</td></tr>
+                  <tr><td colspan="9" class="text-center text-muted py-5">{{ i18n.t('common.noData') }}</td></tr>
                 }
               </tbody>
             </table>
@@ -140,6 +155,7 @@ export class DashboardComponent {
   private readonly api = inject(ApiService);
   readonly i18n = inject(I18nService);
   readonly data = signal<Dashboard | null>(null);
+  readonly sectionOrDepartment = sectionOrDepartment;
 
   constructor() {
     firstValueFrom(this.api.dashboard()).then(d => this.data.set(d));
@@ -158,19 +174,21 @@ export class DashboardComponent {
     window.location.href = `/requests/${id}`;
   }
 
-  async downloadPdf(id: number): Promise<void> {
+  async downloadPdf(id: number, destructionNo?: string | null): Promise<void> {
     const blob = await firstValueFrom(this.api.downloadPdf(id));
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `destruction-request-${id}.pdf`; a.click();
+    const noPart = (destructionNo ?? String(id)).replace(/[\\/]/g, '-');
+    a.href = url; a.download = `استمارة إتلاف رقم ${noPart}.pdf`; a.click();
     URL.revokeObjectURL(url);
   }
 
-  async downloadDocx(id: number): Promise<void> {
+  async downloadDocx(id: number, destructionNo?: string | null): Promise<void> {
     const blob = await firstValueFrom(this.api.downloadRequestDocx(id));
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `destruction-request-${id}.docx`; a.click();
+    const noPart = (destructionNo ?? String(id)).replace(/[\\/]/g, '-');
+    a.href = url; a.download = `استمارة إتلاف رقم ${noPart}.docx`; a.click();
     URL.revokeObjectURL(url);
   }
 

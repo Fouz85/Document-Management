@@ -1,10 +1,9 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using System.Security.Claims;
 using RecordsDestruction.Application.DTOs;
-using RecordsDestruction.Domain.Enums;
 using RecordsDestruction.Infrastructure.Identity;
 using RecordsDestruction.Infrastructure.Services;
 
@@ -26,32 +25,6 @@ public class AuthController : ControllerBase
         _jwt = jwt;
     }
 
-    [HttpPost("register")]
-    [EnableRateLimiting("auth")]
-    public async Task<IActionResult> Register(RegisterUserDto dto)
-    {
-        var existing = await _userManager.FindByEmailAsync(dto.Email);
-        if (existing is not null)
-            return BadRequest(new { error = "auth.emailInUse" });
-
-        var user = new ApplicationUser
-        {
-            UserName = dto.Email,
-            Email = dto.Email,
-            FullName = dto.FullName,
-            Department = dto.Department,
-            IsActive = false,
-            RegistrationStatus = RegistrationStatus.Pending
-        };
-        var result = await _userManager.CreateAsync(user, dto.Password);
-        if (!result.Succeeded)
-            return BadRequest(new { errors = result.Errors.Select(e => e.Code) });
-
-        // Self-registration is always the "User" role — never trust a client-supplied role here.
-        await _userManager.AddToRoleAsync(user, "User");
-        return Ok();
-    }
-
     [HttpPost("login")]
     [EnableRateLimiting("auth")]
     public async Task<ActionResult<AuthResultDto>> Login(LoginDto dto)
@@ -65,11 +38,6 @@ public class AuthController : ControllerBase
         if (!result.Succeeded)
             return Unauthorized(new { error = "auth.invalidCredentials" });
 
-        // Only reveal registration status once the password is confirmed — avoids leaking status to guessers.
-        if (user.RegistrationStatus == RegistrationStatus.Pending)
-            return Unauthorized(new { error = "auth.pendingApproval" });
-        if (user.RegistrationStatus == RegistrationStatus.Rejected)
-            return Unauthorized(new { error = "auth.registrationRejected" });
         if (!user.IsActive)
             return Unauthorized(new { error = "auth.invalidCredentials" });
 
@@ -86,17 +54,61 @@ public class AuthController : ControllerBase
         };
     }
 
-    [HttpPost("change-password")]
+    /// <summary>Self-service sign-up — no admin approval. FullName/Department stay blank until the
+    /// user fills them in via CompleteProfile right after their first login.</summary>
+    [HttpPost("register")]
+    [EnableRateLimiting("auth")]
+    public async Task<ActionResult<AuthResultDto>> Register(SelfRegisterDto dto)
+    {
+        var user = new ApplicationUser
+        {
+            UserName = dto.Email,
+            Email = dto.Email,
+            IsActive = true
+        };
+        var result = await _userManager.CreateAsync(user, dto.Password);
+        if (!result.Succeeded)
+            return BadRequest(new { errors = result.Errors.Select(e => e.Code) });
+
+        await _userManager.AddToRoleAsync(user, "User");
+
+        var roles = await _userManager.GetRolesAsync(user);
+        var (token, expires) = _jwt.CreateToken(user, roles);
+        return new AuthResultDto
+        {
+            Token = token,
+            ExpiresAtUtc = expires,
+            FullName = user.FullName,
+            Email = user.Email ?? string.Empty,
+            Department = user.Department,
+            Roles = roles
+        };
+    }
+
+    /// <summary>The logged-in user filling in their own name/department — not an admin action.
+    /// Re-issues the token since FullName is baked into its claims (see JwtTokenService).</summary>
+    [HttpPut("profile")]
     [Authorize]
-    public async Task<IActionResult> ChangePassword(ChangePasswordDto dto)
+    public async Task<ActionResult<AuthResultDto>> CompleteProfile(CompleteProfileDto dto)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var user = await _userManager.FindByIdAsync(userId);
-        if (user is null) return Unauthorized();
+        if (user is null) return NotFound();
 
-        var result = await _userManager.ChangePasswordAsync(user, dto.CurrentPassword, dto.NewPassword);
-        if (!result.Succeeded)
-            return BadRequest(new { errors = result.Errors.Select(e => e.Code) });
-        return NoContent();
+        user.FullName = dto.FullName;
+        user.Department = dto.Department;
+        await _userManager.UpdateAsync(user);
+
+        var roles = await _userManager.GetRolesAsync(user);
+        var (token, expires) = _jwt.CreateToken(user, roles);
+        return new AuthResultDto
+        {
+            Token = token,
+            ExpiresAtUtc = expires,
+            FullName = user.FullName,
+            Email = user.Email ?? string.Empty,
+            Department = user.Department,
+            Roles = roles
+        };
     }
 }

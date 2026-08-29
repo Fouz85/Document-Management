@@ -25,7 +25,7 @@ public class SignatureBlockDto
 }
 
 /// <summary>Create / update payload. Validation messages are keys resolved client-side (no hardcoded UI strings).</summary>
-public class SaveDestructionRequestDto
+public class SaveDestructionRequestDto : IValidatableObject
 {
     [Required] public string ConcernedParty { get; set; } = string.Empty;
 
@@ -33,15 +33,14 @@ public class SaveDestructionRequestDto
     [RegularExpression(@"^\d{4}\\\d+$")]
     public string DestructionNo { get; set; } = string.Empty;
 
-    [Required] public string Department { get; set; } = string.Empty;
-    [Required] public string ResponsibleOfficer { get; set; } = string.Empty;
-    [Required, EmailAddress] public string Email { get; set; } = string.Empty;
+    public string Department { get; set; } = string.Empty;
+    public string ResponsibleOfficer { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
 
-    [Required]
     [RegularExpression(@"^(\+974|974)?[34567]\d{7}$")]
     public string Phone { get; set; } = string.Empty;
 
-    [Required] public string StorageLocation { get; set; } = string.Empty;
+    public string StorageLocation { get; set; } = string.Empty;
     public decimal? TotalVolume { get; set; }
     public DateTime? RecordsFirstDate { get; set; }
     public DateTime? RecordsLastDate { get; set; }
@@ -55,6 +54,25 @@ public class SaveDestructionRequestDto
 
     /// <summary>True = save as Draft ("Complete Later"); false = Submitted.</summary>
     public bool SaveAsDraft { get; set; }
+
+    /// <summary>A draft may leave these fields empty (that's the point of "complete later") — but a
+    /// final submission needs them filled in. [RegularExpression] (used for Phone/DestructionNo) already
+    /// skips empty values on its own, but the built-in [EmailAddress] attribute does NOT — it fails on
+    /// an empty string, only skipping a true null — so Email's format is checked here by hand instead,
+    /// to apply the same "skip when empty" convention as everything else.</summary>
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (!string.IsNullOrEmpty(Email) && !new EmailAddressAttribute().IsValid(Email))
+            yield return new ValidationResult("Email is not a valid e-mail address", new[] { nameof(Email) });
+
+        if (SaveAsDraft) yield break;
+
+        if (string.IsNullOrWhiteSpace(Department)) yield return new ValidationResult("Department is required", new[] { nameof(Department) });
+        if (string.IsNullOrWhiteSpace(ResponsibleOfficer)) yield return new ValidationResult("ResponsibleOfficer is required", new[] { nameof(ResponsibleOfficer) });
+        if (string.IsNullOrWhiteSpace(Email)) yield return new ValidationResult("Email is required", new[] { nameof(Email) });
+        if (string.IsNullOrWhiteSpace(Phone)) yield return new ValidationResult("Phone is required", new[] { nameof(Phone) });
+        if (string.IsNullOrWhiteSpace(StorageLocation)) yield return new ValidationResult("StorageLocation is required", new[] { nameof(StorageLocation) });
+    }
 }
 
 public class DestructionRequestListItemDto
@@ -68,6 +86,7 @@ public class DestructionRequestListItemDto
     public int RecordsCount { get; set; }
     public string? AdminNotes { get; set; }
     public string? SubmittedByUserId { get; set; }
+    public bool IsDestroyed { get; set; }
 }
 
 public class DestructionRequestDetailsDto : SaveDestructionRequestDto
@@ -77,6 +96,9 @@ public class DestructionRequestDetailsDto : SaveDestructionRequestDto
     public string? AdminNotes { get; set; }
     public DateTime SubmittedAt { get; set; }
     public string? SubmittedByUserId { get; set; }
+    public bool IsDestroyed { get; set; }
+    public DateTime? DestroyedAt { get; set; }
+    public string? DestroyedByName { get; set; }
 }
 
 public class UpdateStatusDto

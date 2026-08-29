@@ -50,6 +50,9 @@ export class ApiService {
   updateStatus(id: number, status: string, notes?: string): Observable<void> {
     return this.http.put<void>(`${this.base}/admin/submissions/${id}/status`, { status, notes });
   }
+  toggleDestroyed(id: number): Observable<{ isDestroyed: boolean }> {
+    return this.http.post<{ isDestroyed: boolean }>(`${this.base}/admin/submissions/${id}/toggle-destroyed`, {});
+  }
   softDelete(id: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/admin/submissions/${id}`);
   }
@@ -64,10 +67,7 @@ export class ApiService {
   users(): Observable<UserDto[]> {
     return this.http.get<UserDto[]>(`${this.base}/admin/users`);
   }
-  createUser(dto: { fullName: string; email: string; department: string; password: string; role: string }): Observable<{ id: string }> {
-    return this.http.post<{ id: string }>(`${this.base}/admin/users`, dto);
-  }
-  updateUser(id: string, dto: { fullName: string; email: string; department: string; role: string; newPassword?: string }): Observable<void> {
+  updateUser(id: string, dto: { fullName: string; email: string; department: string; role: string }): Observable<void> {
     return this.http.put<void>(`${this.base}/admin/users/${id}`, dto);
   }
   deleteUser(id: string): Observable<void> {
@@ -75,18 +75,6 @@ export class ApiService {
   }
   toggleUserStatus(id: string): Observable<{ isActive: boolean }> {
     return this.http.post<{ isActive: boolean }>(`${this.base}/admin/users/${id}/toggle-status`, {});
-  }
-  approveUser(id: string): Observable<void> {
-    return this.http.post<void>(`${this.base}/admin/users/${id}/approve`, {});
-  }
-  rejectUser(id: string): Observable<void> {
-    return this.http.post<void>(`${this.base}/admin/users/${id}/reject`, {});
-  }
-  register(dto: { fullName: string; email: string; department: string; password: string }): Observable<void> {
-    return this.http.post<void>(`${this.base}/auth/register`, dto);
-  }
-  changePassword(currentPassword: string, newPassword: string): Observable<void> {
-    return this.http.post<void>(`${this.base}/auth/change-password`, { currentPassword, newPassword });
   }
 
   private filter(search?: string, status?: string): HttpParams {
