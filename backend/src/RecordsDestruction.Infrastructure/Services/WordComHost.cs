@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
 
 namespace RecordsDestruction.Infrastructure.Services;
 
@@ -17,14 +18,48 @@ public sealed class WordComHost : IDisposable
     private const int WdFormatPDF = 17;
     private const int WdAlertsNone = 0;
 
+    // Exported files carry signatures/stamps and PII (names, emails, phone numbers) — isolated in
+    // their own subfolder (rather than bare %TEMP%) so they're easy to target for cleanup/ACL
+    // hardening and don't get lost among unrelated temp clutter.
+    private static readonly string ExportDir = Path.Combine(Path.GetTempPath(), "RDS_Exports");
+
     private readonly BlockingCollection<(byte[] Docx, TaskCompletionSource<byte[]> Result)> _queue = new();
     private readonly Thread _thread;
+    private readonly ILogger<WordComHost> _logger;
 
-    public WordComHost()
+    public WordComHost(ILogger<WordComHost> logger)
     {
+        _logger = logger;
+        Directory.CreateDirectory(ExportDir);
+        CleanupStaleFiles();
         _thread = new Thread(RunLoop) { IsBackground = true, Name = "WordComHost" };
         _thread.SetApartmentState(ApartmentState.STA);
         _thread.Start();
+    }
+
+    /// <summary>Best-effort sweep of anything a prior process crash left behind mid-conversion
+    /// (the try/finally in ConvertOne only cleans up on a normal return path).</summary>
+    private void CleanupStaleFiles()
+    {
+        var cutoff = DateTime.UtcNow.AddHours(-1);
+        try
+        {
+            foreach (var file in Directory.EnumerateFiles(ExportDir))
+            {
+                try
+                {
+                    if (File.GetLastWriteTimeUtc(file) < cutoff) File.Delete(file);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to clean up stale export file {File}", file);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to sweep export directory {Dir}", ExportDir);
+        }
     }
 
     public Task<byte[]> ConvertToPdfAsync(byte[] docxBytes)
@@ -77,10 +112,10 @@ public sealed class WordComHost : IDisposable
         return wordApp;
     }
 
-    private static byte[] ConvertOne(object wordApp, byte[] docxBytes)
+    private byte[] ConvertOne(object wordApp, byte[] docxBytes)
     {
-        var tempDocx = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.docx");
-        var tempPdf = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.pdf");
+        var tempDocx = Path.Combine(ExportDir, $"{Guid.NewGuid()}.docx");
+        var tempPdf = Path.Combine(ExportDir, $"{Guid.NewGuid()}.pdf");
         object? doc = null;
         try
         {
@@ -98,8 +133,12 @@ public sealed class WordComHost : IDisposable
         finally
         {
             if (doc is not null) Marshal.FinalReleaseComObject(doc);
-            try { if (File.Exists(tempDocx)) File.Delete(tempDocx); } catch { }
-            try { if (File.Exists(tempPdf)) File.Delete(tempPdf); } catch { }
+            // Deletion failures are logged, not swallowed — an orphaned file here still contains
+            // signatures/stamps and PII, so ops needs to be able to detect it.
+            try { if (File.Exists(tempDocx)) File.Delete(tempDocx); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Failed to delete temp export file {File}", tempDocx); }
+            try { if (File.Exists(tempPdf)) File.Delete(tempPdf); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Failed to delete temp export file {File}", tempPdf); }
         }
     }
 

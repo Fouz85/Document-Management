@@ -15,6 +15,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplica
     public DbSet<DestructionRequest> DestructionRequests => Set<DestructionRequest>();
     public DbSet<DestructionRecord> DestructionRecords => Set<DestructionRecord>();
     public DbSet<Approval> Approvals => Set<Approval>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -40,6 +41,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplica
         {
             e.Property(x => x.Status).HasMaxLength(50);
             e.Property(x => x.TotalVolume).HasPrecision(18, 4);
+            // Restrict, not Cascade: users are only ever soft-deleted (AdminController.DeleteUser),
+            // so this FK should never actually fire a delete-time action — it exists purely to
+            // guarantee SubmittedByUserId always points at a real account going forward.
+            e.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.SubmittedByUserId).OnDelete(DeleteBehavior.Restrict);
             e.HasQueryFilter(x => !x.IsDeleted);
         });
 
@@ -59,9 +64,17 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplica
             e.Property(x => x.Status).HasMaxLength(50).IsRequired();
             e.HasOne(x => x.DestructionRequest).WithMany(r => r.Approvals)
              .HasForeignKey(x => x.DestructionRequestId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.ApproverUserId).OnDelete(DeleteBehavior.Restrict);
             e.HasQueryFilter(x => !x.IsDeleted && !x.DestructionRequest!.IsDeleted);
         });
 
         builder.Entity<ApplicationUser>(e => e.HasQueryFilter(u => !u.IsDeleted));
+
+        builder.Entity<RefreshToken>(e =>
+        {
+            e.Property(x => x.TokenHash).HasMaxLength(128).IsRequired();
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+        });
     }
 }

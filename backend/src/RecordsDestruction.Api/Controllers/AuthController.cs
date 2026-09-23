@@ -43,10 +43,12 @@ public class AuthController : ControllerBase
 
         var roles = await _userManager.GetRolesAsync(user);
         var (token, expires) = _jwt.CreateToken(user, roles);
+        var refreshToken = await _jwt.CreateRefreshTokenAsync(user.Id);
         return new AuthResultDto
         {
             Token = token,
             ExpiresAtUtc = expires,
+            RefreshToken = refreshToken,
             FullName = user.FullName,
             Email = user.Email ?? string.Empty,
             Department = user.Department,
@@ -74,10 +76,12 @@ public class AuthController : ControllerBase
 
         var roles = await _userManager.GetRolesAsync(user);
         var (token, expires) = _jwt.CreateToken(user, roles);
+        var refreshToken = await _jwt.CreateRefreshTokenAsync(user.Id);
         return new AuthResultDto
         {
             Token = token,
             ExpiresAtUtc = expires,
+            RefreshToken = refreshToken,
             FullName = user.FullName,
             Email = user.Email ?? string.Empty,
             Department = user.Department,
@@ -101,14 +105,53 @@ public class AuthController : ControllerBase
 
         var roles = await _userManager.GetRolesAsync(user);
         var (token, expires) = _jwt.CreateToken(user, roles);
+        var refreshToken = await _jwt.CreateRefreshTokenAsync(user.Id);
         return new AuthResultDto
         {
             Token = token,
             ExpiresAtUtc = expires,
+            RefreshToken = refreshToken,
             FullName = user.FullName,
             Email = user.Email ?? string.Empty,
             Department = user.Department,
             Roles = roles
         };
+    }
+
+    /// <summary>Exchanges an unexpired, unused refresh token for a new access token — this is how a
+    /// session survives past the short-lived access token without asking the user to log in again.
+    /// The refresh token itself is the credential here, so this intentionally has no [Authorize].</summary>
+    [HttpPost("refresh")]
+    [EnableRateLimiting("auth")]
+    public async Task<ActionResult<AuthResultDto>> Refresh(RefreshRequestDto dto)
+    {
+        var result = await _jwt.RefreshAsync(dto.RefreshToken);
+        if (result is null) return Unauthorized(new { error = "auth.invalidRefreshToken" });
+
+        var (user, token, expires, refreshToken) = result.Value;
+        var roles = await _userManager.GetRolesAsync(user);
+        return new AuthResultDto
+        {
+            Token = token,
+            ExpiresAtUtc = expires,
+            RefreshToken = refreshToken,
+            FullName = user.FullName,
+            Email = user.Email ?? string.Empty,
+            Department = user.Department,
+            Roles = roles
+        };
+    }
+
+    /// <summary>Server-side sign-out: revokes every active refresh token for the caller, so a
+    /// previously-issued refresh token can no longer be used to mint new access tokens even if it
+    /// was captured. The (already short-lived) access token itself keeps working until it naturally
+    /// expires — there is no access-token revocation list in this phase.</summary>
+    [HttpPost("logout")]
+    [Authorize]
+    public async Task<IActionResult> Logout()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        await _jwt.RevokeAllAsync(userId);
+        return NoContent();
     }
 }
