@@ -195,12 +195,14 @@ public class DestructionRequestService
     }
 
     /// <summary>Marks (or un-marks) that the physical destruction has actually taken place — only
-    /// meaningful for an Approved request. Returns null if the request doesn't exist or isn't
-    /// Approved; otherwise the new IsDestroyed value.</summary>
+    /// meaningful for an Approved request. Returns null if the request doesn't exist, isn't
+    /// Approved, or (when marking as destroyed) Legal Affairs and Internal Audit haven't both
+    /// countersigned yet — otherwise the new IsDestroyed value. Un-marking is never blocked this way.</summary>
     public async Task<bool?> ToggleDestroyedAsync(int id, string adminName)
     {
         var r = await _db.DestructionRequests.FirstOrDefaultAsync(x => x.Id == id);
         if (r is null || r.Status != RequestStatus.Approved) return null;
+        if (!r.IsDestroyed && (r.LegalAffairsSignature is null || r.InternalAuditSignature is null)) return null;
 
         r.IsDestroyed = !r.IsDestroyed;
         r.DestroyedAt = r.IsDestroyed ? DateTime.UtcNow : null;
@@ -208,6 +210,34 @@ public class DestructionRequestService
         r.LastModifiedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return r.IsDestroyed;
+    }
+
+    /// <summary>Legal Affairs / Internal Audit signing their own box — deliberately separate from
+    /// UpdateAsync's blanket "no edits once Approved" lock: this is the one narrow exception to it,
+    /// scoped to exactly 4 columns for whichever block the caller's role owns. Only valid once the
+    /// request is Approved and not yet physically destroyed. signerName/the timestamp are the
+    /// server's own — see DestructionRequestsController.SignCounterSignature.</summary>
+    public async Task<bool> SignCounterBlockAsync(int id, string block, string signerName, string? signature)
+    {
+        var r = await _db.DestructionRequests.FirstOrDefaultAsync(x => x.Id == id);
+        if (r is null) return false;
+        if (r.Status != RequestStatus.Approved || r.IsDestroyed) return false;
+
+        var now = DateTime.UtcNow;
+        switch (block)
+        {
+            case "LegalAffairs":
+                r.LegalAffairsName = signerName; r.LegalAffairsDate = now; r.LegalAffairsSignature = signature;
+                break;
+            case "InternalAudit":
+                r.InternalAuditName = signerName; r.InternalAuditDate = now; r.InternalAuditSignature = signature;
+                break;
+            default:
+                return false;
+        }
+        r.LastModifiedAt = now;
+        await _db.SaveChangesAsync();
+        return true;
     }
 
     /// <summary>Soft delete only — physical deletion is forbidden (audit & PDPPL). An admin (no
@@ -282,16 +312,13 @@ public class DestructionRequestService
             e.CreatorUnitSignature = dto.CreatorUnit?.Signature; e.CreatorUnitStamp = dto.CreatorUnit?.Stamp;
         }
 
-        // The submitting employee only ever signs on behalf of their own Creator Unit — Legal
-        // Affairs, Internal Audit, and Records Management are filled in later by those actual
-        // departments during the approval workflow, and only an admin acting on their behalf may
-        // set them. A non-admin caller's values for these are ignored, not just hidden client-side.
+        // Records Management ("المسؤول عن الإدارة المختصة") is the admin's own box, filled in when
+        // they act on the request — same as before. Legal Affairs and Internal Audit are NOT set
+        // here at all, by anyone, admin included: those two boxes belong exclusively to the two
+        // dedicated LegalAffairs/InternalAudit accounts, via SignCounterBlockAsync below, once the
+        // request is Approved. A value sent here for either is silently ignored.
         if (isAdmin)
         {
-            e.LegalAffairsName = dto.LegalAffairs?.Name; e.LegalAffairsDate = dto.LegalAffairs?.Date;
-            e.LegalAffairsSignature = dto.LegalAffairs?.Signature; e.LegalAffairsStamp = dto.LegalAffairs?.Stamp;
-            e.InternalAuditName = dto.InternalAudit?.Name; e.InternalAuditDate = dto.InternalAudit?.Date;
-            e.InternalAuditSignature = dto.InternalAudit?.Signature; e.InternalAuditStamp = dto.InternalAudit?.Stamp;
             e.RecordsManagementName = dto.RecordsManagement?.Name; e.RecordsManagementDate = dto.RecordsManagement?.Date;
             e.RecordsManagementSignature = dto.RecordsManagement?.Signature; e.RecordsManagementStamp = dto.RecordsManagement?.Stamp;
         }

@@ -39,6 +39,18 @@ export class ApiService {
   downloadRequestDocx(id: number): Observable<Blob> {
     return this.http.get(`${this.base}/requests/${id}/docx`, { responseType: 'blob' });
   }
+  /** Only works on the caller's own draft — the server rejects anything else. */
+  deleteRequest(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/requests/${id}`);
+  }
+
+  // Legal Affairs / Internal Audit
+  pendingSignature(): Observable<RequestListItem[]> {
+    return this.http.get<RequestListItem[]>(`${this.base}/requests/pending-signature`);
+  }
+  signCounterSignature(id: number, signature: string): Observable<void> {
+    return this.http.put<void>(`${this.base}/requests/${id}/counter-signature`, { signature });
+  }
 
   // Admin
   dashboard(): Observable<Dashboard> {

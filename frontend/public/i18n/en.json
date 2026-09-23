@@ -5,7 +5,7 @@
     "dashboard": "Dashboard", "allSubmissions": "All Submissions", "management": "Management",
     "users": "Users", "addUser": "Add User", "account": "Account",
     "importantLinks": "Important Links", "formGuide": "Destruction Form Guide",
-    "logout": "Sign Out",
+    "logout": "Sign Out", "pendingSignature": "Pending My Signature",
     "roleAdmin": "Administrator", "roleUser": "User", "toggleSidebar": "Toggle sidebar"
   },
   "auth": {
@@ -37,6 +37,7 @@
     "concernedParty": "Concerned Party",
     "destructionNo": "Destruction No.",
     "destructionNoHint": "Format: 2026\\03",
+    "destructionNoPending": "Assigned automatically upon submission",
     "adminUnit": "Administrative Unit",
     "department": "Department", "selectDepartment": "Select Department",
     "section": "Section", "selectSection": "Select Section (optional)", "schoolNamePlaceholder": "Example: Omar bin Al-Khattab Preparatory School for Boys",
@@ -83,7 +84,9 @@
     "viewRequest": "View Request",
     "requestNo": "Request No.", "submittedAt": "Date",
     "recordsCount": "Records",
-    "noSubmissionsYet": "No requests submitted yet", "createFirst": "Create your first request"
+    "noSubmissionsYet": "No requests submitted yet", "createFirst": "Create your first request",
+    "signHere": "Signature required here", "sign": "Sign",
+    "noPendingSignature": "No requests currently awaiting your signature"
   },
   "admin": {
     "dashboard": "Dashboard", "total": "Total Submissions", "submitted": "Pending Review",
@@ -95,6 +98,7 @@
     "addNewUser": "Add New User", "createUser": "Create User",
     "fullName": "Name", "role": "Role",
     "roleAdmin": "Admin", "roleUser": "User",
+    "roleLegalAffairs": "Legal Affairs", "roleInternalAudit": "Internal Audit",
     "active": "Active", "inactive": "Inactive",
     "activate": "Activate", "deactivate": "Deactivate",
     "approve": "Approve", "reject": "Reject",

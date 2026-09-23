@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, adminGuard, profileCompleteGuard } from './core/guards';
+import { authGuard, adminGuard, profileCompleteGuard, roleGuard } from './core/guards';
 
 export const routes: Routes = [
   { path: 'login', loadComponent: () => import('./features/auth/login.component').then(m => m.LoginComponent) },
@@ -17,6 +17,9 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'requests' },
       { path: 'requests', loadComponent: () => import('./features/requests/my-submissions.component').then(m => m.MySubmissionsComponent) },
       { path: 'requests/new', loadComponent: () => import('./features/requests/request-form.component').then(m => m.RequestFormComponent) },
+      // Must come before 'requests/:id' — otherwise ':id' greedily matches 'pending-signature' as an id.
+      { path: 'requests/pending-signature', canActivate: [roleGuard('LegalAffairs', 'InternalAudit')],
+        loadComponent: () => import('./features/requests/pending-signature.component').then(m => m.PendingSignatureComponent) },
       { path: 'requests/:id', loadComponent: () => import('./features/requests/request-details.component').then(m => m.RequestDetailsComponent) },
       { path: 'requests/:id/edit', loadComponent: () => import('./features/requests/request-form.component').then(m => m.RequestFormComponent) },
       { path: 'admin', canActivate: [adminGuard], children: [

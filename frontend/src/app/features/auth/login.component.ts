@@ -84,7 +84,7 @@ export class LoginComponent {
       if (this.auth.profileIncomplete()) {
         this.router.navigate(['/complete-profile']);
       } else {
-        this.router.navigate([this.auth.isAdmin() ? '/admin/dashboard' : '/requests/new']);
+        this.router.navigate([this.auth.homeRoute()]);
       }
     } catch (err: unknown) {
       const httpErr = err as { error?: { error?: string } };

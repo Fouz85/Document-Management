@@ -246,7 +246,7 @@ body.lang-en .main-content { margin-right: 0; margin-left: var(--sidebar-w); }
 .btn-outline-secondary:hover { background: var(--skyline); color: white; }
 
 .section-header {
-    background: linear-gradient(135deg, var(--maroon) 0%, #6e102f 100%);
+    background: var(--maroon);
     color: #fff; padding: 0.8rem 1.25rem;
     border-radius: 10px; margin-bottom: 1.25rem;
     font-weight: 700; font-size: 0.95rem;

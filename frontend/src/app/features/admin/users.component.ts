@@ -30,8 +30,8 @@ import { UserDto } from '../../core/models';
                   <td class="col-text">{{ u.email }}</td>
                   <td class="col-text">{{ u.department }}</td>
                   <td>
-                    <span class="badge" [style]="u.roles.includes('Admin') ? 'background:#8A1538;color:#fff;padding:4px 10px;' : 'background:#0d6efd;color:#fff;padding:4px 10px;'">
-                      {{ u.roles.includes('Admin') ? i18n.t('admin.roleAdmin') : i18n.t('admin.roleUser') }}
+                    <span class="badge" [style]="roleBadgeStyle(u.roles)">
+                      {{ roleLabel(u.roles) }}
                     </span>
                   </td>
                   <td>
@@ -89,5 +89,25 @@ export class UsersComponent {
     if (!window.confirm(this.i18n.t('admin.confirmDeleteUser'))) return;
     await firstValueFrom(this.api.deleteUser(u.id));
     await this.load();
+  }
+
+  private readonly roleBadges: Record<string, { labelKey: string; style: string }> = {
+    Admin: { labelKey: 'admin.roleAdmin', style: 'background:#8A1538;color:#fff;padding:4px 10px;' },
+    LegalAffairs: { labelKey: 'admin.roleLegalAffairs', style: 'background:#6f42c1;color:#fff;padding:4px 10px;' },
+    InternalAudit: { labelKey: 'admin.roleInternalAudit', style: 'background:#198754;color:#fff;padding:4px 10px;' },
+    User: { labelKey: 'admin.roleUser', style: 'background:#0d6efd;color:#fff;padding:4px 10px;' }
+  };
+
+  /** A user is only ever expected to hold one of these roles at a time — first match wins. */
+  private matchedRole(roles: string[]): string {
+    return ['Admin', 'LegalAffairs', 'InternalAudit'].find(r => roles.includes(r)) ?? 'User';
+  }
+
+  roleLabel(roles: string[]): string {
+    return this.i18n.t(this.roleBadges[this.matchedRole(roles)].labelKey);
+  }
+
+  roleBadgeStyle(roles: string[]): string {
+    return this.roleBadges[this.matchedRole(roles)].style;
   }
 }

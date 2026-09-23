@@ -14,8 +14,21 @@ export class AuthService {
 
   readonly session = signal<AuthResult | null>(this.restore());
   readonly isLoggedIn = computed(() => this.session() !== null);
-  readonly isAdmin = computed(() => this.session()?.roles.includes('Admin') ?? false);
   readonly token = computed(() => this.session()?.token ?? null);
+
+  hasRole(role: string): boolean {
+    return this.session()?.roles.includes(role) ?? false;
+  }
+
+  readonly isAdmin = computed(() => this.hasRole('Admin'));
+  readonly isCounterSigner = computed(() => this.hasRole('LegalAffairs') || this.hasRole('InternalAudit'));
+
+  /** Where each role lands after login / when a guard redirects them away from a page they can't use. */
+  homeRoute(): string {
+    if (this.isAdmin()) return '/admin/dashboard';
+    if (this.isCounterSigner()) return '/requests/pending-signature';
+    return '/requests/new';
+  }
 
   async login(email: string, password: string): Promise<void> {
     const result = await firstValueFrom(

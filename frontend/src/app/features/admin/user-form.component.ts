@@ -60,6 +60,8 @@ const EMPTY_FORM: UserForm = { id: '', fullName: '', email: '', department: '', 
             <select class="form-select" name="role" [ngModel]="f().role" (ngModelChange)="patch({ role: $event })">
               <option value="User">{{ i18n.t('admin.roleUser') }}</option>
               <option value="Admin">{{ i18n.t('admin.roleAdmin') }}</option>
+              <option value="LegalAffairs">{{ i18n.t('admin.roleLegalAffairs') }}</option>
+              <option value="InternalAudit">{{ i18n.t('admin.roleInternalAudit') }}</option>
             </select>
           </div>
         </div>

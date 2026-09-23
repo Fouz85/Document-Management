@@ -1,6 +1,6 @@
 import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { AbstractControl, FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter, firstValueFrom } from 'rxjs';
 import { ApiService } from '../../core/api.service';
@@ -9,7 +9,6 @@ import { I18nService } from '../../core/i18n.service';
 import { DepartmentNode, SaveDestructionRequestDto, UnitNode } from '../../core/models';
 import { SignaturePadComponent } from '../../shared/signature-pad.component';
 
-const DESTRUCTION_NO = /^\d{4}\\\d+$/;
 const QATAR_PHONE = /^(\+974|974)?[34567]\d{7}$/;
 
 const RECORD_TYPES = ['Files', 'Registers', 'Maps', 'Engineering Designs', 'Photos', 'Booklets', 'Books'];
@@ -59,8 +58,9 @@ const STORAGE_LOCATIONS = [
               <input id="ConcernedParty" class="form-control readonly-field" formControlName="concernedParty" readonly>
             </div>
             <div class="col-md-6">
-              <label class="form-label" for="DestructionNo">{{ i18n.t('request.destructionNo') }} <span class="text-danger">*</span></label>
-              <input id="DestructionNo" class="form-control readonly-field" formControlName="destructionNo" readonly>
+              <label class="form-label" for="DestructionNo">{{ i18n.t('request.destructionNo') }}</label>
+              <input id="DestructionNo" class="form-control readonly-field" formControlName="destructionNo" readonly
+                     [placeholder]="i18n.t('request.destructionNoPending')">
             </div>
           </div>
         </div>
@@ -96,7 +96,7 @@ const STORAGE_LOCATIONS = [
             </div>
             <div class="col-md-6">
               <label class="form-label" for="ResponsibleOfficer">{{ i18n.t('request.responsibleOfficer') }} <span class="text-danger">*</span></label>
-              <input id="ResponsibleOfficer" class="form-control" formControlName="responsibleOfficer">
+              <input id="ResponsibleOfficer" class="form-control" formControlName="responsibleOfficer" [class.field-invalid]="invalid('responsibleOfficer')">
             </div>
             <div class="col-md-6">
               <label class="form-label" for="Email">{{ i18n.t('request.email') }} <span class="text-danger">*</span></label>
@@ -287,8 +287,13 @@ const STORAGE_LOCATIONS = [
                       <input type="date" class="form-control form-control-sm" formControlName="date" lang="en-GB">
                     </div>
                     <div>
-                      <label class="form-label mb-1" style="font-size:0.75rem;">{{ i18n.t('request.signature') }}</label>
-                      <app-signature-pad formControlName="signature" />
+                      <label class="form-label mb-1" style="font-size:0.75rem;">
+                        {{ i18n.t('request.signature') }}
+                        @if (block.key === 'creatorUnit') { <span class="text-danger">*</span> }
+                      </label>
+                      <div [class.field-invalid]="block.key === 'creatorUnit' && invalid('creatorUnit.signature')">
+                        <app-signature-pad formControlName="signature" />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -348,14 +353,16 @@ export class RequestFormComponent {
   readonly submittedOk = signal<number | null>(null);
   readonly editId = signal<number | null>(null);
 
+  // Legal Affairs / Internal Audit are deliberately NOT shown here — they're no longer editable
+  // through this form at all (backend ignores them now), only via the dedicated counter-signature
+  // action on the request-details page, by the two accounts that own those roles.
   readonly signatureBlocks = [
-    { key: 'creatorUnit' }, { key: 'legalAffairs' },
-    { key: 'internalAudit' }, { key: 'recordsManagement' }
+    { key: 'creatorUnit' }, { key: 'recordsManagement' }
   ] as const;
 
   readonly form: FormGroup = this.fb.group({
     concernedParty: ['وزارة التربية والتعليم والتعليم العالي', Validators.required],
-    destructionNo: ['', [Validators.required, Validators.pattern(DESTRUCTION_NO)]],
+    destructionNo: [''],
     department: ['', Validators.required],
     responsibleOfficer: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
@@ -364,7 +371,7 @@ export class RequestFormComponent {
     totalVolume: [null as number | null, Validators.required],
     firstYear: [null as number | null],
     lastYear: [null as number | null],
-    creatorUnit: this.signatureGroup(),
+    creatorUnit: this.signatureGroup(true),
     legalAffairs: this.signatureGroup(),
     internalAudit: this.signatureGroup(),
     recordsManagement: this.signatureGroup(),
@@ -384,6 +391,16 @@ export class RequestFormComponent {
 
   constructor() {
     this.load();
+    // The submitting employee only signs on behalf of their own Creator Unit — Records Management
+    // is filled in later by the admin, acting on their own behalf, during the approval workflow.
+    // (Legal Affairs/Internal Audit aren't rendered by this form at all any more — see signatureBlocks.)
+    if (!this.auth.isAdmin()) {
+      this.form.get('recordsManagement')?.disable();
+    } else if (this.editId()) {
+      // Conversely, an admin reviewing/editing an existing request must not be able to alter or
+      // erase the original submitter's own Creator Unit signature — that's theirs, not the admin's.
+      this.form.get('creatorUnit')?.disable();
+    }
     // "New Request" links point at the same "/requests/new" URL as this route: after a
     // submission (submittedOk set), clicking it again is a same-URL navigation, which Angular
     // would otherwise ignore — reset back to a fresh form instead of leaving the thank-you screen up.
@@ -458,8 +475,8 @@ export class RequestFormComponent {
     this.selectedUnitId.set('');
     this.selectedSectionId.set('');
     this.schoolName.set('');
-    const next = await firstValueFrom(this.api.nextDestructionNo());
-    this.form.patchValue({ destructionNo: next.destructionNo });
+    // No real destruction number yet — the server assigns one only once the request is actually
+    // submitted (not saved as a draft), so an abandoned draft never burns a number out of the sequence.
     this.addRecord();
   }
 
@@ -589,17 +606,29 @@ export class RequestFormComponent {
     return this.isInvalidToShow(this.form.get(name), name);
   }
 
-  /** A draft may leave required fields empty, but any field that does have a value must still
-   * be correctly formatted (e.g. a real email address) — drafts skip completeness, not correctness. */
+  /** A draft may leave required fields empty, but any field that does have a value must still be
+   * correctly formatted — drafts skip completeness, not correctness. Email and phone are the only
+   * two controls in this form with an actual format validator (everything else is plain "required"
+   * or unvalidated free text/signature/date fields), so check exactly those two rather than walking
+   * the whole form tree — a generic walk risks tripping on unrelated controls (e.g. a disabled
+   * signature block) for no reason. */
   private hasFormatErrors(): boolean {
-    const walk = (control: AbstractControl): boolean => {
-      if (control instanceof FormGroup || control instanceof FormArray) {
-        return Object.values(control.controls).some(walk);
-      }
-      const errors = control.errors;
+    const isFormatInvalid = (name: string): boolean => {
+      const errors = this.form.get(name)?.errors;
       return !!errors && Object.keys(errors).some(k => k !== 'required');
     };
-    return walk(this.form);
+    return isFormatInvalid('email') || isFormatInvalid('phone');
+  }
+
+  /** Scrolls to and focuses the first field flagged red, so the user isn't left guessing which
+   * one the banner message refers to. Deferred a tick so the .field-invalid class (driven by
+   * signals/validators updated just above) has actually rendered before we go looking for it. */
+  private scrollToFirstInvalid(): void {
+    setTimeout(() => {
+      const el = document.querySelector<HTMLElement>('.field-invalid');
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el?.focus?.();
+    }, 0);
   }
 
   async submit(asDraft: boolean): Promise<void> {
@@ -607,16 +636,19 @@ export class RequestFormComponent {
     if (!asDraft && this.form.invalid) {
       this.form.markAllAsTouched();
       this.message.set('common.fillRequired');
+      this.scrollToFirstInvalid();
       return;
     }
     if (asDraft && this.hasFormatErrors()) {
       this.form.markAllAsTouched();
       this.message.set('common.invalidFormat');
+      this.scrollToFirstInvalid();
       return;
     }
     const schoolNameMissing = !asDraft && this.isSchoolUnit() && !this.schoolName().trim();
     if (schoolNameMissing) {
       this.message.set('common.fillRequired');
+      this.scrollToFirstInvalid();
       return;
     }
     this.busy.set(true);
@@ -672,10 +704,11 @@ export class RequestFormComponent {
     };
   }
 
-  private signatureGroup(): FormGroup {
+  private signatureGroup(requireSignature = false): FormGroup {
     return this.fb.group({
       name: [''], date: [null as string | null],
-      signature: [null as string | null], stamp: [null as string | null]
+      signature: [null as string | null, requireSignature ? Validators.required : []],
+      stamp: [null as string | null]
     });
   }
   private sigIn(b: { name?: string | null; date?: string | null; signature?: string | null; stamp?: string | null } | null | undefined) {

@@ -24,6 +24,10 @@ import { I18nService } from '../core/i18n.service';
             <a routerLink="/admin/users" routerLinkActive="active" class="gov-navbar-link" (click)="closeMobile()">
               {{ i18n.t('nav.users') }}
             </a>
+          } @else if (auth.isCounterSigner()) {
+            <a routerLink="/requests/pending-signature" routerLinkActive="active" class="gov-navbar-link" (click)="closeMobile()">
+              <i class="bi bi-house-door"></i>{{ i18n.t('nav.pendingSignature') }}
+            </a>
           } @else {
             <a routerLink="/requests/new" routerLinkActive="active" class="gov-navbar-link" (click)="closeMobile()">
               <i class="bi bi-house-door"></i>{{ i18n.t('nav.newRequest') }}
