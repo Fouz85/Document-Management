@@ -81,6 +81,7 @@ import { sectionOrDepartment } from '../../core/record-labels';
                   <th style="width:60px;">{{ i18n.t('request.recordsCount') }}</th>
                   <th style="width:125px;white-space:nowrap;">{{ i18n.t('request.submittedAt') }}</th>
                   <th style="width:110px;">{{ i18n.t('common.status') }}</th>
+                  <th style="width:120px;">{{ i18n.t('admin.destroyedColumn') }}</th>
                   <th style="width:210px;">{{ i18n.t('admin.notes') }}</th>
                   <th style="width:70px;">{{ i18n.t('common.actions') }}</th>
                 </tr>
@@ -94,6 +95,19 @@ import { sectionOrDepartment } from '../../core/record-labels';
                     <td><span class="badge bg-secondary">{{ r.recordsCount }}</span></td>
                     <td style="white-space:nowrap;">{{ r.submittedAt | date:'dd-MM-yyyy' }}</td>
                     <td><span class="badge-status" [style]="badgeStyle(r.status)">{{ i18n.t('status.' + r.status) }}</span></td>
+                    <td>
+                      @if (r.status !== 'Approved') {
+                        <span class="text-muted">—</span>
+                      } @else if (r.isDestroyed) {
+                        <span class="badge" style="background:#E6F5F2;color:#0a5c4a;border:1px solid rgba(18,155,130,0.35);font-weight:600;">
+                          <i class="bi bi-check-lg me-1"></i>{{ i18n.t('admin.destroyedYes') }}
+                        </span>
+                      } @else {
+                        <span class="badge" style="background:#EFEAE0;color:var(--dune);border:1px solid #E1D8C4;font-weight:600;">
+                          {{ i18n.t('admin.destroyedNo') }}
+                        </span>
+                      }
+                    </td>
                     <td (click)="$event.stopPropagation()">
                       @if (r.adminNotes) {
                         <span class="badge-status" style="cursor:pointer;background:rgba(221,120,119,0.15);color:#9e3535;border:1px solid rgba(221,120,119,0.5);white-space:nowrap;"
@@ -116,11 +130,17 @@ import { sectionOrDepartment } from '../../core/record-labels';
                             <i class="bi bi-pencil"></i>
                           </a>
                         }
+                        @if (r.status === 'Draft') {
+                          <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
+                                  [title]="i18n.t('common.delete')" (click)="remove(r.id)">
+                            <i class="bi bi-trash"></i>
+                          </button>
+                        }
                       </div>
                     </td>
                   </tr>
                 } @empty {
-                  <tr><td colspan="8" class="text-center text-muted py-5">{{ i18n.t('common.noData') }}</td></tr>
+                  <tr><td colspan="9" class="text-center text-muted py-5">{{ i18n.t('common.noData') }}</td></tr>
                 }
               </tbody>
             </table>
@@ -208,5 +228,11 @@ export class MySubmissionsComponent {
 
   showNote(note: string): void {
     this.selectedNote.set(note);
+  }
+
+  async remove(id: number): Promise<void> {
+    if (!window.confirm(this.i18n.t('common.confirmDelete'))) return;
+    await firstValueFrom(this.api.deleteRequest(id));
+    await this.load();
   }
 }

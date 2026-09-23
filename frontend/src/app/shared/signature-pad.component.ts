@@ -7,19 +7,20 @@ import { I18nService } from '../core/i18n.service';
   selector: 'app-signature-pad',
   providers: [{ provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => SignaturePadComponent), multi: true }],
   template: `
-    <canvas #canvas class="signature-canvas" height="120"
+    <canvas #canvas class="signature-canvas" height="120" [class.disabled]="disabled"
       (pointerdown)="start($event)" (pointermove)="move($event)"
       (pointerup)="end()" (pointerleave)="end()"></canvas>
-    <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
-      <button type="button" class="btn btn-sm btn-outline-secondary" (click)="clear()">
+    <div class="d-flex align-items-center gap-2 mt-1 flex-wrap" [class.invisible]="disabled">
+      <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="disabled" (click)="clear()">
         {{ i18n.t('common.clear') }}
       </button>
       <label class="btn btn-sm btn-outline-secondary mb-0">
         {{ i18n.t('request.uploadSignature') }}
-        <input type="file" accept="image/*" hidden (change)="onFileSelected($event)">
+        <input type="file" accept="image/*" hidden [disabled]="disabled" (change)="onFileSelected($event)">
       </label>
     </div>
-  `
+  `,
+  styles: [`.signature-canvas.disabled { pointer-events: none; opacity: 0.7; background: #f5f5f5; }`]
 })
 export class SignaturePadComponent implements ControlValueAccessor, AfterViewInit {
   private readonly canvasRef = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
@@ -27,6 +28,7 @@ export class SignaturePadComponent implements ControlValueAccessor, AfterViewIni
   private dirty = false;
   private onChange: (value: string | null) => void = () => {};
   private onTouched: () => void = () => {};
+  disabled = false;
 
   constructor(readonly i18n: I18nService) {}
 
@@ -50,8 +52,10 @@ export class SignaturePadComponent implements ControlValueAccessor, AfterViewIni
   }
   registerOnChange(fn: (value: string | null) => void): void { this.onChange = fn; }
   registerOnTouched(fn: () => void): void { this.onTouched = fn; }
+  setDisabledState(isDisabled: boolean): void { this.disabled = isDisabled; }
 
   start(e: PointerEvent): void {
+    if (this.disabled) return;
     this.drawing = true;
     const ctx = this.ctx();
     ctx.beginPath();

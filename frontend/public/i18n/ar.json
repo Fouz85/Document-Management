@@ -5,7 +5,7 @@
     "dashboard": "لوحة التحكم", "allSubmissions": "جميع الطلبات", "management": "الإدارة",
     "users": "المستخدمون", "addUser": "إضافة مستخدم", "account": "الحساب",
     "importantLinks": "روابط مهمة", "formGuide": "دليل استمارة إتلاف وثائق",
-    "logout": "تسجيل الخروج",
+    "logout": "تسجيل الخروج", "pendingSignature": "بانتظار توقيعي",
     "roleAdmin": "مدير النظام", "roleUser": "مستخدم", "toggleSidebar": "إخفاء/إظهار القائمة"
   },
   "auth": {
@@ -37,6 +37,7 @@
     "concernedParty": "الجهة المعنية",
     "destructionNo": "رقم الإتلاف",
     "destructionNoHint": "بالصيغة: 2026\\03",
+    "destructionNoPending": "سيُحدد تلقائيًا عند تقديم الطلب",
     "adminUnit": "الوحدة الإدارية",
     "department": "الإدارة", "selectDepartment": "اختر الإدارة",
     "section": "القسم", "selectSection": "اختر القسم (اختياري)", "schoolNamePlaceholder": "مثال: مدرسة عمر بن الخطاب الإعدادية للبنين",
@@ -83,7 +84,10 @@
     "viewRequest": "عرض الطلب",
     "requestNo": "رقم الطلب", "submittedAt": "التاريخ",
     "recordsCount": "السجلات",
-    "noSubmissionsYet": "لا توجد طلبات مقدّمة حتى الآن", "createFirst": "إنشاء أول طلب"
+    "noSubmissionsYet": "لا توجد طلبات مقدّمة حتى الآن", "createFirst": "إنشاء أول طلب",
+    "signHere": "التوقيع مطلوب هنا", "sign": "توقيع",
+    "noPendingSignature": "لا توجد طلبات بانتظار توقيعك حاليًا",
+    "signedByMe": "تم التوقيع", "awaitingMySignature": "بانتظار توقيعك"
   },
   "admin": {
     "dashboard": "لوحة التحكم", "total": "إجمالي الطلبات", "submitted": "قيد المراجعة",
@@ -95,6 +99,7 @@
     "addNewUser": "إضافة مستخدم جديد", "createUser": "إنشاء المستخدم",
     "fullName": "الاسم الكامل", "role": "الدور",
     "roleAdmin": "مدير", "roleUser": "مستخدم",
+    "roleLegalAffairs": "الشؤون القانونية", "roleInternalAudit": "التدقيق الداخلي",
     "active": "نشط", "inactive": "موقوف",
     "activate": "تفعيل", "deactivate": "إيقاف",
     "approve": "قبول", "reject": "رفض",
@@ -102,6 +107,8 @@
     "toggleStatus": "تفعيل / إيقاف",
     "destroyStatus": "حالة الإتلاف الفعلي",
     "notDestroyedYet": "لم يتم تنفيذ الإتلاف الفعلي لهذا الطلب بعد — سيظهر ضمن كشف الإتلاف (Excel) لحين تحديده.",
+    "awaitingCounterSignatures": "لا يمكن تحديد الطلب كمُتلف حتى يوقّع كل من الشؤون القانونية والتدقيق الداخلي.",
+    "signaturesColumn": "حالة التواقيع", "signaturesComplete": "مكتملة", "signaturesPending": "بانتظار التوقيع",
     "markDestroyed": "تحديد كـ \"تم الإتلاف\"",
     "destroyedTitle": "تم الإتلاف الفعلي",
     "destroyedBy": "تم التحديد بواسطة",

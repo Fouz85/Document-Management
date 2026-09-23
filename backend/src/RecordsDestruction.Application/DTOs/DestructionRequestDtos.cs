@@ -29,8 +29,8 @@ public class SaveDestructionRequestDto : IValidatableObject
 {
     [Required] public string ConcernedParty { get; set; } = string.Empty;
 
-    [Required]
-    [RegularExpression(@"^\d{4}\\\d+$")]
+    // Assigned by the server (see DestructionRequestService.CreateAsync/UpdateAsync) — never
+    // trusted from client input — so this carries no validation; any value sent here is ignored.
     public string DestructionNo { get; set; } = string.Empty;
 
     public string Department { get; set; } = string.Empty;
@@ -72,7 +72,18 @@ public class SaveDestructionRequestDto : IValidatableObject
         if (string.IsNullOrWhiteSpace(Email)) yield return new ValidationResult("Email is required", new[] { nameof(Email) });
         if (string.IsNullOrWhiteSpace(Phone)) yield return new ValidationResult("Phone is required", new[] { nameof(Phone) });
         if (string.IsNullOrWhiteSpace(StorageLocation)) yield return new ValidationResult("StorageLocation is required", new[] { nameof(StorageLocation) });
+        // The Creator Unit's own signature is the one mandatory signature on submit — Legal
+        // Affairs/Internal Audit/Records Management are filled in later by other people entirely.
+        if (string.IsNullOrWhiteSpace(CreatorUnit?.Signature)) yield return new ValidationResult("CreatorUnit signature is required", new[] { nameof(CreatorUnit) });
     }
+}
+
+/// <summary>Legal Affairs / Internal Audit signing their own box on an Approved request — Name and
+/// Date are stamped server-side from the authenticated account, never client-supplied (see
+/// DestructionRequestService.SignCounterBlockAsync), so only the signature image travels here.</summary>
+public class CounterSignatureDto
+{
+    [Required] public string Signature { get; set; } = string.Empty;
 }
 
 public class DestructionRequestListItemDto
@@ -87,6 +98,12 @@ public class DestructionRequestListItemDto
     public string? AdminNotes { get; set; }
     public string? SubmittedByUserId { get; set; }
     public bool IsDestroyed { get; set; }
+    /// <summary>Whether each counter-signature block is already filled — used by the "pending my
+    /// signature" list so a LegalAffairs/InternalAudit account can tell, without opening the request,
+    /// which ones they've already signed (the list itself always includes every Approved request,
+    /// signed or not, since a colleague's outstanding signature still matters to see).</summary>
+    public bool HasLegalAffairsSignature { get; set; }
+    public bool HasInternalAuditSignature { get; set; }
 }
 
 public class DestructionRequestDetailsDto : SaveDestructionRequestDto

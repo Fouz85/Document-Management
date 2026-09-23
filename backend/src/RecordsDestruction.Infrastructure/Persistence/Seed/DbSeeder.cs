@@ -18,34 +18,45 @@ public static class DbSeeder
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
         var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
-        foreach (var role in new[] { "Admin", "User" })
+        foreach (var role in new[] { "Admin", "User", "LegalAffairs", "InternalAudit" })
             if (!await roleManager.RoleExistsAsync(role))
                 await roleManager.CreateAsync(new IdentityRole(role));
 
-        // Admin credentials come from configuration / environment variables — NEVER hardcoded.
-        // Seed:AdminEmail + Seed:AdminPassword (e.g. user-secrets in dev, env vars in prod).
-        var adminEmail = config["Seed:AdminEmail"];
-        var adminPassword = config["Seed:AdminPassword"];
-        if (!string.IsNullOrWhiteSpace(adminEmail) && !string.IsNullOrWhiteSpace(adminPassword))
-        {
-            var admin = await userManager.FindByEmailAsync(adminEmail);
-            if (admin is null)
-            {
-                admin = new ApplicationUser
-                {
-                    UserName = adminEmail,
-                    Email = adminEmail,
-                    FullName = "System Administrator",
-                    Department = "IT",
-                    IsActive = true
-                };
-                var result = await userManager.CreateAsync(admin, adminPassword);
-                if (result.Succeeded)
-                    await userManager.AddToRoleAsync(admin, "Admin");
-            }
-        }
+        // Credentials come from configuration / environment variables — NEVER hardcoded.
+        // Seed:<Role>Email + Seed:<Role>Password (e.g. user-secrets in dev, env vars in prod).
+        await SeedNamedAccountAsync(userManager, config, "Seed:AdminEmail", "Seed:AdminPassword",
+            "Admin", "System Administrator", "IT");
+        await SeedNamedAccountAsync(userManager, config, "Seed:LegalAffairsEmail", "Seed:LegalAffairsPassword",
+            "LegalAffairs", "مدير الشؤون القانونية", "الشؤون القانونية");
+        await SeedNamedAccountAsync(userManager, config, "Seed:InternalAuditEmail", "Seed:InternalAuditPassword",
+            "InternalAudit", "مدير التدقيق الداخلي", "التدقيق الداخلي");
 
         await SeedDepartmentsAsync(context);
+    }
+
+    /// <summary>No-op if either config key is blank, or if the account already exists — never updates
+    /// an existing account's role/password on subsequent runs.</summary>
+    private static async Task SeedNamedAccountAsync(UserManager<ApplicationUser> userManager, IConfiguration config,
+        string emailKey, string passwordKey, string role, string defaultFullName, string defaultDepartment)
+    {
+        var email = config[emailKey];
+        var password = config[passwordKey];
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password)) return;
+
+        var existing = await userManager.FindByEmailAsync(email);
+        if (existing is not null) return;
+
+        var user = new ApplicationUser
+        {
+            UserName = email,
+            Email = email,
+            FullName = defaultFullName,
+            Department = defaultDepartment,
+            IsActive = true
+        };
+        var result = await userManager.CreateAsync(user, password);
+        if (result.Succeeded)
+            await userManager.AddToRoleAsync(user, role);
     }
 
     private static async Task SeedDepartmentsAsync(ApplicationDbContext context)

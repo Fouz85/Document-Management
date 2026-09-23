@@ -117,9 +117,14 @@ public class AdminController : ControllerBase
         user.Department = dto.Department;
         await _userManager.UpdateAsync(user);
 
+        // Explicit allow-list, not a deny-list collapsing anything unrecognized to "User" — that
+        // silently demoted the dedicated LegalAffairs/InternalAudit accounts on any unrelated
+        // profile edit (e.g. fixing a typo in their name) with no error, quietly breaking the
+        // signing workflow.
         var roles = await _userManager.GetRolesAsync(user);
         await _userManager.RemoveFromRolesAsync(user, roles);
-        await _userManager.AddToRoleAsync(user, dto.Role == "Admin" ? "Admin" : "User");
+        var allowedRoles = new[] { "Admin", "User", "LegalAffairs", "InternalAudit" };
+        await _userManager.AddToRoleAsync(user, allowedRoles.Contains(dto.Role) ? dto.Role : "User");
 
         return NoContent();
     }
