@@ -31,10 +31,18 @@ public class AuthResultDto
 {
     public string Token { get; set; } = string.Empty;
     public DateTime ExpiresAtUtc { get; set; }
+    /// <summary>Longer-lived, single-use, server-revocable — used only to obtain a new access token
+    /// via POST /api/auth/refresh once Token expires.</summary>
+    public string RefreshToken { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string Department { get; set; } = string.Empty;
     public IList<string> Roles { get; set; } = new List<string>();
+}
+
+public class RefreshRequestDto
+{
+    [Required] public string RefreshToken { get; set; } = string.Empty;
 }
 
 /// <summary>Self-service sign-up — deliberately just credentials. Name/department are collected right

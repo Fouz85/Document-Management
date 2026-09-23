@@ -24,6 +24,18 @@ export class AuthService {
     this.setSession(result);
   }
 
+  /** Exchanges the stored refresh token for a new access token. Throws if there's no session or
+   *  the refresh token has expired/was already used/revoked — callers should treat that as "must
+   *  log in again", same as any other auth failure. */
+  async refresh(): Promise<void> {
+    const refreshToken = this.session()?.refreshToken;
+    if (!refreshToken) throw new Error('No refresh token available');
+    const result = await firstValueFrom(
+      this.http.post<AuthResult>(`${environment.apiUrl}/auth/refresh`, { refreshToken })
+    );
+    this.setSession(result);
+  }
+
   /** Self-service sign-up — no admin approval. FullName/Department come right after via completeProfile(). */
   async register(email: string, password: string): Promise<void> {
     const result = await firstValueFrom(
@@ -50,7 +62,14 @@ export class AuthService {
     this.session.set(result);
   }
 
-  logout(): void {
+  /** Revokes the session's refresh token server-side (best-effort — a network failure here must
+   *  never block the client-side sign-out) before clearing local state. */
+  async logout(): Promise<void> {
+    try {
+      await firstValueFrom(this.http.post(`${environment.apiUrl}/auth/logout`, {}));
+    } catch {
+      // Offline or already-expired token — the local session is cleared regardless below.
+    }
     sessionStorage.removeItem(STORAGE_KEY);
     this.session.set(null);
     this.router.navigate(['/login']);

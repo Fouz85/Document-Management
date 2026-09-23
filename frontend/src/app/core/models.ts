@@ -1,6 +1,7 @@
 export interface AuthResult {
   token: string;
   expiresAtUtc: string;
+  refreshToken: string;
   fullName: string;
   email: string;
   department: string;

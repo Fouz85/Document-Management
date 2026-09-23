@@ -28,7 +28,20 @@ public class DestructionRequestService
         return $"{prefix}{(max + 1):D2}";
     }
 
-    public async Task<int> CreateAsync(SaveDestructionRequestDto dto, string userId)
+    /// <summary>Parses "YYYY\NN" into a sortable (year, number) pair — lets lists order by the actual
+    /// destruction number (newest/highest first) instead of submission timestamp, which can drift out
+    /// of step with the number once requests get edited, copied, or renumbered.</summary>
+    private static (int year, int num) ParseDestructionNo(string? no)
+    {
+        if (string.IsNullOrEmpty(no)) return (0, 0);
+        var parts = no.Split('\\');
+        if (parts.Length != 2) return (0, 0);
+        int.TryParse(parts[0], out var y);
+        int.TryParse(parts[1], out var n);
+        return (y, n);
+    }
+
+    public async Task<int> CreateAsync(SaveDestructionRequestDto dto, string userId, bool isAdmin)
     {
         var entity = new DestructionRequest
         {
@@ -36,7 +49,10 @@ public class DestructionRequestService
             Status = dto.SaveAsDraft ? RequestStatus.Draft : RequestStatus.Submitted,
             SubmittedAt = DateTime.UtcNow
         };
-        Apply(dto, entity);
+        Apply(dto, entity, isAdmin);
+        // A draft doesn't get a real destruction number — otherwise every abandoned draft burns a
+        // number out of the sequence, leaving a gap once it's later deleted or replaced.
+        entity.DestructionNo = dto.SaveAsDraft ? null : await GetNextDestructionNoAsync();
         _db.DestructionRequests.Add(entity);
         await _db.SaveChangesAsync();
         return entity.Id;
@@ -48,6 +64,10 @@ public class DestructionRequestService
             .Include(r => r.Records)
             .FirstOrDefaultAsync(r => r.Id == id);
         if (entity is null) return false;
+        // Approved/destroyed requests are locked — no caller, including Admin, may edit them further
+        // through this endpoint. Status changes go through UpdateStatusAsync; physical destruction
+        // tracking goes through ToggleDestroyedAsync.
+        if (entity.Status == RequestStatus.Approved || entity.IsDestroyed) return false;
         if (!isAdmin && entity.SubmittedByUserId != userId) return false;
 
         // Once submitted, a regular user can only edit again if the admin rejected it
@@ -66,10 +86,14 @@ public class DestructionRequestService
             old.IsDeleted = true;
             old.DeletedAt = DateTime.UtcNow;
         }
-        Apply(dto, entity);
+        Apply(dto, entity, isAdmin);
         entity.Status = isAdmin
             ? (dto.SaveAsDraft ? RequestStatus.Draft : entity.Status == RequestStatus.Draft ? RequestStatus.Submitted : entity.Status)
             : (dto.SaveAsDraft ? RequestStatus.Draft : RequestStatus.Submitted);
+        // A draft carries no real destruction number; one gets assigned the first time it stops
+        // being a draft. A request that already has one (already submitted before) keeps it.
+        if (dto.SaveAsDraft) entity.DestructionNo = null;
+        else if (entity.DestructionNo is null) entity.DestructionNo = await GetNextDestructionNoAsync();
         entity.LastModifiedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return true;
@@ -77,7 +101,9 @@ public class DestructionRequestService
 
     public async Task<List<DestructionRequestListItemDto>> ListAsync(string? userId, string? search, string? status)
     {
-        var q = _db.DestructionRequests.AsNoTracking().AsQueryable();
+        var q = _db.DestructionRequests.AsNoTracking()
+            .Include(r => r.Records.Where(x => !x.IsDeleted))
+            .AsQueryable();
         if (userId is not null) q = q.Where(r => r.SubmittedByUserId == userId);
         // Drafts are private, unsubmitted work — never show another user's draft to an admin.
         else q = q.Where(r => r.Status != RequestStatus.Draft);
@@ -87,7 +113,14 @@ public class DestructionRequestService
                           || r.Department.Contains(search)
                           || r.ResponsibleOfficer.Contains(search));
 
-        return await q.OrderByDescending(r => r.SubmittedAt)
+        var requests = await q.ToListAsync();
+        return requests
+            // A draft carries no destruction number yet — it's unfinished work the user still needs
+            // to act on, so it belongs at the very top, not buried under every numbered request.
+            .OrderByDescending(r => r.DestructionNo is null)
+            .ThenByDescending(r => ParseDestructionNo(r.DestructionNo).year)
+            .ThenByDescending(r => ParseDestructionNo(r.DestructionNo).num)
+            .ThenByDescending(r => r.SubmittedAt) // ties (e.g. among drafts) fall back to newest first
             .Select(r => new DestructionRequestListItemDto
             {
                 Id = r.Id,
@@ -100,7 +133,7 @@ public class DestructionRequestService
                 AdminNotes = r.AdminNotes,
                 SubmittedByUserId = r.SubmittedByUserId,
                 IsDestroyed = r.IsDestroyed
-            }).ToListAsync();
+            }).ToList();
     }
 
     public async Task<DestructionRequestDetailsDto?> GetAsync(int id, string? restrictToUserId)
@@ -149,6 +182,9 @@ public class DestructionRequestService
         if (!RequestStatus.IsValid(status)) return false;
         var r = await _db.DestructionRequests.FirstOrDefaultAsync(x => x.Id == id);
         if (r is null) return false;
+        // Approved is terminal for this endpoint — the only further action on an Approved request
+        // is ToggleDestroyedAsync (physical-destruction tracking).
+        if (r.Status == RequestStatus.Approved) return false;
         r.Status = status;
         // A note only makes sense as "here's what to fix" — once approved there's nothing left
         // to revise, so it shouldn't linger into an approved request's history.
@@ -174,11 +210,18 @@ public class DestructionRequestService
         return r.IsDestroyed;
     }
 
-    /// <summary>Soft delete only — physical deletion is forbidden (audit & PDPPL).</summary>
-    public async Task<bool> SoftDeleteAsync(int id)
+    /// <summary>Soft delete only — physical deletion is forbidden (audit & PDPPL). An admin (no
+    /// restrictToUserId) can delete anything; a regular user can only delete their own, and only
+    /// while it's still a draft — a submitted request is no longer theirs alone to remove.</summary>
+    public async Task<bool> SoftDeleteAsync(int id, string? restrictToUserId = null)
     {
         var r = await _db.DestructionRequests.Include(x => x.Records).FirstOrDefaultAsync(x => x.Id == id);
         if (r is null) return false;
+        // Once physically destroyed, the record is the evidentiary trail of that destruction —
+        // not even an Admin may soft-delete (hide) it.
+        if (r.IsDestroyed) return false;
+        if (restrictToUserId is not null && (r.SubmittedByUserId != restrictToUserId || r.Status != RequestStatus.Draft))
+            return false;
         r.IsDeleted = true;
         r.DeletedAt = DateTime.UtcNow;
         foreach (var rec in r.Records) { rec.IsDeleted = true; rec.DeletedAt = DateTime.UtcNow; }
@@ -198,7 +241,13 @@ public class DestructionRequestService
             RejectedCount = await q.CountAsync(r => r.Status == RequestStatus.Rejected),
             DraftCount = await q.CountAsync(r => r.Status == RequestStatus.Draft),
             // Drafts are private, unsubmitted work — never show another user's draft to an admin.
-            RecentSubmissions = await q.Where(r => r.Status != RequestStatus.Draft).OrderByDescending(r => r.SubmittedAt).Take(5)
+            RecentSubmissions = (await q.Where(r => r.Status != RequestStatus.Draft)
+                    .Include(r => r.Records.Where(x => !x.IsDeleted))
+                    .ToListAsync())
+                .OrderByDescending(r => ParseDestructionNo(r.DestructionNo).year)
+                .ThenByDescending(r => ParseDestructionNo(r.DestructionNo).num)
+                .ThenByDescending(r => r.SubmittedAt)
+                .Take(5)
                 .Select(r => new DestructionRequestListItemDto
                 {
                     Id = r.Id, DestructionNo = r.DestructionNo, Department = r.Department,
@@ -206,14 +255,15 @@ public class DestructionRequestService
                     RecordsCount = r.Records.Count(x => !x.IsDeleted),
                     SubmittedByUserId = r.SubmittedByUserId,
                     IsDestroyed = r.IsDestroyed
-                }).ToListAsync()
+                }).ToList()
         };
     }
 
-    private static void Apply(SaveDestructionRequestDto dto, DestructionRequest e)
+    private static void Apply(SaveDestructionRequestDto dto, DestructionRequest e, bool isAdmin)
     {
         e.ConcernedParty = dto.ConcernedParty;
-        e.DestructionNo = dto.DestructionNo;
+        // DestructionNo is assigned by the service (see CreateAsync/UpdateAsync), never taken from
+        // client input, so it's deliberately not set here.
         e.Department = dto.Department;
         e.ResponsibleOfficer = dto.ResponsibleOfficer;
         e.Email = dto.Email;
@@ -223,14 +273,28 @@ public class DestructionRequestService
         e.RecordsFirstDate = dto.RecordsFirstDate;
         e.RecordsLastDate = dto.RecordsLastDate;
 
-        e.CreatorUnitName = dto.CreatorUnit?.Name; e.CreatorUnitDate = dto.CreatorUnit?.Date;
-        e.CreatorUnitSignature = dto.CreatorUnit?.Signature; e.CreatorUnitStamp = dto.CreatorUnit?.Stamp;
-        e.LegalAffairsName = dto.LegalAffairs?.Name; e.LegalAffairsDate = dto.LegalAffairs?.Date;
-        e.LegalAffairsSignature = dto.LegalAffairs?.Signature; e.LegalAffairsStamp = dto.LegalAffairs?.Stamp;
-        e.InternalAuditName = dto.InternalAudit?.Name; e.InternalAuditDate = dto.InternalAudit?.Date;
-        e.InternalAuditSignature = dto.InternalAudit?.Signature; e.InternalAuditStamp = dto.InternalAudit?.Stamp;
-        e.RecordsManagementName = dto.RecordsManagement?.Name; e.RecordsManagementDate = dto.RecordsManagement?.Date;
-        e.RecordsManagementSignature = dto.RecordsManagement?.Signature; e.RecordsManagementStamp = dto.RecordsManagement?.Stamp;
+        // An admin reviewing/editing an existing request must not be able to alter or erase the
+        // original submitter's own Creator Unit signature — only a brand-new request (e.Id == 0,
+        // not yet saved) or the non-admin owner themselves may set it.
+        if (!isAdmin || e.Id == 0)
+        {
+            e.CreatorUnitName = dto.CreatorUnit?.Name; e.CreatorUnitDate = dto.CreatorUnit?.Date;
+            e.CreatorUnitSignature = dto.CreatorUnit?.Signature; e.CreatorUnitStamp = dto.CreatorUnit?.Stamp;
+        }
+
+        // The submitting employee only ever signs on behalf of their own Creator Unit — Legal
+        // Affairs, Internal Audit, and Records Management are filled in later by those actual
+        // departments during the approval workflow, and only an admin acting on their behalf may
+        // set them. A non-admin caller's values for these are ignored, not just hidden client-side.
+        if (isAdmin)
+        {
+            e.LegalAffairsName = dto.LegalAffairs?.Name; e.LegalAffairsDate = dto.LegalAffairs?.Date;
+            e.LegalAffairsSignature = dto.LegalAffairs?.Signature; e.LegalAffairsStamp = dto.LegalAffairs?.Stamp;
+            e.InternalAuditName = dto.InternalAudit?.Name; e.InternalAuditDate = dto.InternalAudit?.Date;
+            e.InternalAuditSignature = dto.InternalAudit?.Signature; e.InternalAuditStamp = dto.InternalAudit?.Stamp;
+            e.RecordsManagementName = dto.RecordsManagement?.Name; e.RecordsManagementDate = dto.RecordsManagement?.Date;
+            e.RecordsManagementSignature = dto.RecordsManagement?.Signature; e.RecordsManagementStamp = dto.RecordsManagement?.Stamp;
+        }
 
         foreach (var rec in dto.Records)
         {
