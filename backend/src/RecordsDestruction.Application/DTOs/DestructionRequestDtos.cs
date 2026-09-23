@@ -98,6 +98,12 @@ public class DestructionRequestListItemDto
     public string? AdminNotes { get; set; }
     public string? SubmittedByUserId { get; set; }
     public bool IsDestroyed { get; set; }
+    /// <summary>Whether each counter-signature block is already filled — used by the "pending my
+    /// signature" list so a LegalAffairs/InternalAudit account can tell, without opening the request,
+    /// which ones they've already signed (the list itself always includes every Approved request,
+    /// signed or not, since a colleague's outstanding signature still matters to see).</summary>
+    public bool HasLegalAffairsSignature { get; set; }
+    public bool HasInternalAuditSignature { get; set; }
 }
 
 public class DestructionRequestDetailsDto : SaveDestructionRequestDto

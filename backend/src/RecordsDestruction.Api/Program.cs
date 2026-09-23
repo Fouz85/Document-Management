@@ -82,12 +82,22 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// Migrate + seed
+// Migrate + seed. A migration failure is fatal (the schema itself may be wrong) and is left to
+// crash the app as before, but seeding is best-effort demo/bootstrap data — e.g. a seed account's
+// email colliding with a soft-deleted leftover row from earlier testing — and must never take the
+// whole API down on startup over it.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await db.Database.MigrateAsync();
-    await DbSeeder.SeedAsync(app.Services);
+    try
+    {
+        await DbSeeder.SeedAsync(app.Services);
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Database seeding failed — continuing startup without it.");
+    }
 }
 
 app.Run();

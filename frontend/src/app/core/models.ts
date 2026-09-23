@@ -57,6 +57,8 @@ export interface RequestListItem {
   recordsCount: number;
   adminNotes?: string | null;
   isDestroyed: boolean;
+  hasLegalAffairsSignature: boolean;
+  hasInternalAuditSignature: boolean;
 }
 
 export interface RequestDetails extends SaveDestructionRequestDto {

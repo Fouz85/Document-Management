@@ -86,7 +86,8 @@
     "recordsCount": "Records",
     "noSubmissionsYet": "No requests submitted yet", "createFirst": "Create your first request",
     "signHere": "Signature required here", "sign": "Sign",
-    "noPendingSignature": "No requests currently awaiting your signature"
+    "noPendingSignature": "No requests currently awaiting your signature",
+    "signedByMe": "Signed", "awaitingMySignature": "Awaiting your signature"
   },
   "admin": {
     "dashboard": "Dashboard", "total": "Total Submissions", "submitted": "Pending Review",
@@ -106,6 +107,8 @@
     "toggleStatus": "Activate / Deactivate",
     "destroyStatus": "Physical Destruction Status",
     "notDestroyedYet": "This request has not been physically destroyed yet — it will appear in the destruction summary (Excel) until marked.",
+    "awaitingCounterSignatures": "Can't mark this request as destroyed until both Legal Affairs and Internal Audit have signed.",
+    "signaturesColumn": "Signatures", "signaturesComplete": "Complete", "signaturesPending": "Pending signature",
     "markDestroyed": "Mark as \"Destroyed\"",
     "destroyedTitle": "Physically Destroyed",
     "destroyedBy": "Marked by",

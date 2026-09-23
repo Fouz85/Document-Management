@@ -97,9 +97,33 @@ import { SignaturePadComponent } from '../../shared/signature-pad.component';
               <div class="section-header"><i class="bi bi-trash"></i>{{ i18n.t('admin.destroyStatus') }}</div>
               <p class="text-muted small" [class.mb-0]="!auth.isAdmin()" [class.mb-3]="auth.isAdmin()">{{ i18n.t('admin.notDestroyedYet') }}</p>
               @if (auth.isAdmin()) {
-                <button class="btn btn-primary" (click)="toggleDestroyed()" [disabled]="togglingDestroyed()">
+                <!-- The two counter-signatures are otherwise only visible by scrolling to the
+                     signatures grid at the bottom of the page — surfaced here too so the admin can
+                     tell at a glance why "mark as destroyed" is (or isn't) available yet. -->
+                <ul class="list-unstyled small mb-3">
+                  <li class="mb-1">
+                    @if (r.legalAffairs?.signature) {
+                      <i class="bi bi-check-circle-fill" style="color:var(--palm);"></i>
+                    } @else {
+                      <i class="bi bi-x-circle-fill text-danger"></i>
+                    }
+                    {{ i18n.t('request.sig_legalAffairs') }}
+                  </li>
+                  <li>
+                    @if (r.internalAudit?.signature) {
+                      <i class="bi bi-check-circle-fill" style="color:var(--palm);"></i>
+                    } @else {
+                      <i class="bi bi-x-circle-fill text-danger"></i>
+                    }
+                    {{ i18n.t('request.sig_internalAudit') }}
+                  </li>
+                </ul>
+                <button class="btn btn-primary" (click)="toggleDestroyed()" [disabled]="togglingDestroyed() || !bothCounterSigned(r)">
                   <i class="bi bi-check-lg me-1"></i>{{ i18n.t('admin.markDestroyed') }}
                 </button>
+                @if (!bothCounterSigned(r)) {
+                  <div class="form-text text-danger mt-1">{{ i18n.t('admin.awaitingCounterSignatures') }}</div>
+                }
               }
             }
           </div>
@@ -175,7 +199,13 @@ import { SignaturePadComponent } from '../../shared/signature-pad.component';
         <div class="card mb-3 border-primary">
           <div class="card-body p-4">
             <div class="section-header"><i class="bi bi-pen"></i>{{ i18n.t('request.sig_' + block) }} — {{ i18n.t('request.signHere') }}</div>
-            <app-signature-pad name="counterSignature" [(ngModel)]="counterSignatureDraft"></app-signature-pad>
+            <!-- Deliberately the same col-md-3 width as the 4 read-only boxes below: the signature
+                 pad's canvas captures its image at whatever width it's drawn in but a fixed height,
+                 so signing in a full-width box here would save a very wide/flat image that then
+                 looks squashed once displayed at the narrower width those boxes use. -->
+            <div class="col-md-3">
+              <app-signature-pad name="counterSignature" [(ngModel)]="counterSignatureDraft"></app-signature-pad>
+            </div>
             <button class="btn btn-primary mt-3" (click)="signCounter()" [disabled]="signingCounter() || !counterSignatureDraft">
               @if (signingCounter()) {
                 <span class="spinner-border spinner-border-sm me-1"></span>
@@ -201,7 +231,13 @@ import { SignaturePadComponent } from '../../shared/signature-pad.component';
                     <div class="small mb-1"><span class="form-label">{{ i18n.t('request.name') }}:</span> {{ b.value?.name }}</div>
                     <div class="small mb-2"><span class="form-label">{{ i18n.t('request.date') }}:</span> {{ b.value?.date | date:'yyyy-MM-dd' }}</div>
                     @if (b.value?.signature) {
-                      <img [src]="b.value?.signature" class="img-fluid border rounded" [alt]="i18n.t('request.signature')">
+                      <!-- Fixed height + object-fit:contain instead of plain img-fluid: a saved
+                           signature can have any aspect ratio (e.g. an older one saved from a wider
+                           box), and without this every box would render a different height instead
+                           of the uniform grid these 4 cards are meant to look like. -->
+                      <img [src]="b.value?.signature" class="border rounded"
+                           style="width:100%;height:110px;object-fit:contain;background:#fff;"
+                           [alt]="i18n.t('request.signature')">
                     }
                   </div>
                 </div>
@@ -295,6 +331,10 @@ export class RequestDetailsComponent {
     } finally {
       this.saving.set(false);
     }
+  }
+
+  bothCounterSigned(r: RequestDetails): boolean {
+    return !!r.legalAffairs?.signature && !!r.internalAudit?.signature;
   }
 
   async toggleDestroyed(): Promise<void> {

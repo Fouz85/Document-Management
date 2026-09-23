@@ -71,6 +71,7 @@ import { sectionOrDepartment } from '../../core/record-labels';
                   <th style="width:60px;">{{ i18n.t('request.recordsCount') }}</th>
                   <th style="width:125px;white-space:nowrap;">{{ i18n.t('request.submittedAt') }}</th>
                   <th style="width:110px;">{{ i18n.t('common.status') }}</th>
+                  <th style="width:150px;">{{ i18n.t('admin.signaturesColumn') }}</th>
                   <th style="width:120px;">{{ i18n.t('admin.destroyedColumn') }}</th>
                   <th style="width:90px;">{{ i18n.t('common.actions') }}</th>
                 </tr>
@@ -85,6 +86,21 @@ import { sectionOrDepartment } from '../../core/record-labels';
                     <td><span class="badge bg-secondary">{{ r.recordsCount }}</span></td>
                     <td style="white-space:nowrap;">{{ r.submittedAt | date:'dd-MM-yyyy' }}</td>
                     <td><span class="badge-status" [style]="badgeStyle(r.status)">{{ i18n.t('status.' + r.status) }}</span></td>
+                    <td>
+                      <!-- So the admin can tell which Approved requests are still waiting on Legal
+                           Affairs/Internal Audit without opening each one individually. -->
+                      @if (r.status !== 'Approved') {
+                        <span class="text-muted">—</span>
+                      } @else if (r.hasLegalAffairsSignature && r.hasInternalAuditSignature) {
+                        <span class="badge" style="background:#E6F5F2;color:#0a5c4a;border:1px solid rgba(18,155,130,0.35);font-weight:600;">
+                          <i class="bi bi-check-lg me-1"></i>{{ i18n.t('admin.signaturesComplete') }}
+                        </span>
+                      } @else {
+                        <span class="badge" [title]="signaturesTooltip(r)" style="background:#fdecea;color:#a13a34;border:1px solid rgba(221,120,119,0.4);font-weight:600;">
+                          <i class="bi bi-exclamation-circle me-1"></i>{{ i18n.t('admin.signaturesPending') }}
+                        </span>
+                      }
+                    </td>
                     <td>
                       @if (r.status !== 'Approved') {
                         <span class="text-muted">—</span>
@@ -136,7 +152,7 @@ import { sectionOrDepartment } from '../../core/record-labels';
                     </td>
                   </tr>
                 } @empty {
-                  <tr><td colspan="9" class="text-center text-muted py-5">{{ i18n.t('common.noData') }}</td></tr>
+                  <tr><td colspan="10" class="text-center text-muted py-5">{{ i18n.t('common.noData') }}</td></tr>
                 }
               </tbody>
             </table>
@@ -194,6 +210,15 @@ export class AdminSubmissionsComponent {
     this.filterStatus = '';
     this.filtered.set(this.items());
     this.filterResultText.set('');
+  }
+
+  /** Which of the two counter-signatures is still missing, for the pending-signature badge's
+   * hover tooltip — e.g. "الشؤون القانونية، التدقيق الداخلي" if both are outstanding. */
+  signaturesTooltip(r: RequestListItem): string {
+    const missing: string[] = [];
+    if (!r.hasLegalAffairsSignature) missing.push(this.i18n.t('request.sig_legalAffairs'));
+    if (!r.hasInternalAuditSignature) missing.push(this.i18n.t('request.sig_internalAudit'));
+    return missing.join('، ');
   }
 
   badgeStyle(status: string): string {

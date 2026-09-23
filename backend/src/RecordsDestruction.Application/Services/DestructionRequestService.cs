@@ -132,7 +132,9 @@ public class DestructionRequestService
                 RecordsCount = r.Records.Count(x => !x.IsDeleted),
                 AdminNotes = r.AdminNotes,
                 SubmittedByUserId = r.SubmittedByUserId,
-                IsDestroyed = r.IsDestroyed
+                IsDestroyed = r.IsDestroyed,
+                HasLegalAffairsSignature = r.LegalAffairsSignature is not null,
+                HasInternalAuditSignature = r.InternalAuditSignature is not null
             }).ToList();
     }
 

@@ -86,7 +86,8 @@
     "recordsCount": "السجلات",
     "noSubmissionsYet": "لا توجد طلبات مقدّمة حتى الآن", "createFirst": "إنشاء أول طلب",
     "signHere": "التوقيع مطلوب هنا", "sign": "توقيع",
-    "noPendingSignature": "لا توجد طلبات بانتظار توقيعك حاليًا"
+    "noPendingSignature": "لا توجد طلبات بانتظار توقيعك حاليًا",
+    "signedByMe": "تم التوقيع", "awaitingMySignature": "بانتظار توقيعك"
   },
   "admin": {
     "dashboard": "لوحة التحكم", "total": "إجمالي الطلبات", "submitted": "قيد المراجعة",
@@ -106,6 +107,8 @@
     "toggleStatus": "تفعيل / إيقاف",
     "destroyStatus": "حالة الإتلاف الفعلي",
     "notDestroyedYet": "لم يتم تنفيذ الإتلاف الفعلي لهذا الطلب بعد — سيظهر ضمن كشف الإتلاف (Excel) لحين تحديده.",
+    "awaitingCounterSignatures": "لا يمكن تحديد الطلب كمُتلف حتى يوقّع كل من الشؤون القانونية والتدقيق الداخلي.",
+    "signaturesColumn": "حالة التواقيع", "signaturesComplete": "مكتملة", "signaturesPending": "بانتظار التوقيع",
     "markDestroyed": "تحديد كـ \"تم الإتلاف\"",
     "destroyedTitle": "تم الإتلاف الفعلي",
     "destroyedBy": "تم التحديد بواسطة",

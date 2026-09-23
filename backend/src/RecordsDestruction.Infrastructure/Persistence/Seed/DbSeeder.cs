@@ -27,9 +27,9 @@ public static class DbSeeder
         await SeedNamedAccountAsync(userManager, config, "Seed:AdminEmail", "Seed:AdminPassword",
             "Admin", "System Administrator", "IT");
         await SeedNamedAccountAsync(userManager, config, "Seed:LegalAffairsEmail", "Seed:LegalAffairsPassword",
-            "LegalAffairs", "Legal Affairs Director", "Legal Affairs");
+            "LegalAffairs", "مدير الشؤون القانونية", "الشؤون القانونية");
         await SeedNamedAccountAsync(userManager, config, "Seed:InternalAuditEmail", "Seed:InternalAuditPassword",
-            "InternalAudit", "Internal Audit Director", "Internal Audit");
+            "InternalAudit", "مدير التدقيق الداخلي", "التدقيق الداخلي");
 
         await SeedDepartmentsAsync(context);
     }

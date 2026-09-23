@@ -100,7 +100,7 @@ export class UserFormComponent {
 
     this.f.set({
       id: user.id, fullName: user.fullName, email: user.email, department: user.department,
-      role: user.roles.includes('Admin') ? 'Admin' : 'User'
+      role: ['Admin', 'LegalAffairs', 'InternalAudit'].find(r => user.roles.includes(r)) ?? 'User'
     });
   }
 

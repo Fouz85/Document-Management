@@ -1,6 +1,6 @@
 import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AbstractControl, FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter, firstValueFrom } from 'rxjs';
 import { ApiService } from '../../core/api.service';
@@ -139,12 +139,12 @@ const STORAGE_LOCATIONS = [
             <div class="col-md-4">
               <label class="form-label" for="FirstYear">{{ i18n.t('request.firstDate') }}</label>
               <input id="FirstYear" type="number" class="form-control" formControlName="firstYear"
-                     [placeholder]="i18n.t('request.yearExampleFirst')" min="1900" max="2100">
+                     [placeholder]="i18n.t('request.yearExampleFirst')" min="1900" max="2100" [class.field-invalid]="invalid('firstYear')">
             </div>
             <div class="col-md-4">
               <label class="form-label" for="LastYear">{{ i18n.t('request.lastDate') }}</label>
               <input id="LastYear" type="number" class="form-control" formControlName="lastYear"
-                     [placeholder]="i18n.t('request.yearExampleLast')" min="1900" max="2100">
+                     [placeholder]="i18n.t('request.yearExampleLast')" min="1900" max="2100" [class.field-invalid]="invalid('lastYear')">
             </div>
           </div>
         </div>
@@ -249,8 +249,8 @@ const STORAGE_LOCATIONS = [
                       </div>
                     </td>
                     <td><input class="form-control form-control-sm" formControlName="retentionRuleNo" [placeholder]="i18n.t('request.ruleNoPlaceholder')"></td>
-                    <td><input type="number" class="form-control form-control-sm" formControlName="firstYear" placeholder="2020" min="1900" max="2100"></td>
-                    <td><input type="number" class="form-control form-control-sm" formControlName="lastYear" placeholder="2024" min="1900" max="2100"></td>
+                    <td><input type="number" class="form-control form-control-sm" formControlName="firstYear" placeholder="2020" min="1900" max="2100" [class.field-invalid]="recordInvalid(rec, 'firstYear')"></td>
+                    <td><input type="number" class="form-control form-control-sm" formControlName="lastYear" placeholder="2024" min="1900" max="2100" [class.field-invalid]="recordInvalid(rec, 'lastYear')"></td>
                     <td><input type="number" step="0.01" min="0" class="form-control form-control-sm" formControlName="recordsVolume" placeholder="0.00" [class.field-invalid]="recordInvalid(rec, 'recordsVolume')"></td>
                     <td><input class="form-control form-control-sm" formControlName="remarks" [placeholder]="i18n.t('request.remarks')"></td>
                     <td class="text-center">
@@ -353,11 +353,12 @@ export class RequestFormComponent {
   readonly submittedOk = signal<number | null>(null);
   readonly editId = signal<number | null>(null);
 
-  // Legal Affairs / Internal Audit are deliberately NOT shown here — they're no longer editable
-  // through this form at all (backend ignores them now), only via the dedicated counter-signature
-  // action on the request-details page, by the two accounts that own those roles.
+  // Legal Affairs / Internal Audit are shown here as read-only placeholders (matching the paper
+  // form's 4-box layout) but are never editable through this form — the backend ignores them here
+  // regardless — only via the dedicated counter-signature action on the request-details page, by
+  // the two accounts that own those roles. See disabling below in the constructor.
   readonly signatureBlocks = [
-    { key: 'creatorUnit' }, { key: 'recordsManagement' }
+    { key: 'creatorUnit' }, { key: 'legalAffairs' }, { key: 'internalAudit' }, { key: 'recordsManagement' }
   ] as const;
 
   readonly form: FormGroup = this.fb.group({
@@ -393,7 +394,6 @@ export class RequestFormComponent {
     this.load();
     // The submitting employee only signs on behalf of their own Creator Unit — Records Management
     // is filled in later by the admin, acting on their own behalf, during the approval workflow.
-    // (Legal Affairs/Internal Audit aren't rendered by this form at all any more — see signatureBlocks.)
     if (!this.auth.isAdmin()) {
       this.form.get('recordsManagement')?.disable();
     } else if (this.editId()) {
@@ -401,6 +401,12 @@ export class RequestFormComponent {
       // erase the original submitter's own Creator Unit signature — that's theirs, not the admin's.
       this.form.get('creatorUnit')?.disable();
     }
+    // Legal Affairs / Internal Audit are always disabled here, for every role including Admin —
+    // they're display-only placeholders. Those two boxes are only ever written via the dedicated
+    // counter-signature endpoint, signed in person by the account that owns that role, on the
+    // request-details page once the request is Approved (InfoSec finding #4).
+    this.form.get('legalAffairs')?.disable();
+    this.form.get('internalAudit')?.disable();
     // "New Request" links point at the same "/requests/new" URL as this route: after a
     // submission (submittedOk set), clicking it again is a same-URL navigation, which Angular
     // would otherwise ignore — reset back to a fresh form instead of leaving the thank-you screen up.
@@ -620,6 +626,17 @@ export class RequestFormComponent {
     return isFormatInvalid('email') || isFormatInvalid('phone');
   }
 
+  /** Walks the whole form tree (including the records rows) looking for any invalid control whose
+   * failure isn't just "required" — e.g. a record's first/last year outside 1900–2100. Used to pick
+   * an accurate error banner on final submit: "fill required fields" is misleading when the real
+   * problem is a value that's present but out of range/format. */
+  private hasAnyNonRequiredError(ctrl: AbstractControl = this.form): boolean {
+    if (ctrl instanceof FormGroup || ctrl instanceof FormArray) {
+      return Object.values(ctrl.controls).some(c => this.hasAnyNonRequiredError(c));
+    }
+    return !!ctrl.errors && Object.keys(ctrl.errors).some(k => k !== 'required');
+  }
+
   /** Scrolls to and focuses the first field flagged red, so the user isn't left guessing which
    * one the banner message refers to. Deferred a tick so the .field-invalid class (driven by
    * signals/validators updated just above) has actually rendered before we go looking for it. */
@@ -635,7 +652,7 @@ export class RequestFormComponent {
     this.submitAttempted.set(!asDraft);
     if (!asDraft && this.form.invalid) {
       this.form.markAllAsTouched();
-      this.message.set('common.fillRequired');
+      this.message.set(this.hasAnyNonRequiredError() ? 'common.invalidFormat' : 'common.fillRequired');
       this.scrollToFirstInvalid();
       return;
     }
